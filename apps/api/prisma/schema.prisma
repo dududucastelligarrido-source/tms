@@ -1,0 +1,222 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  cnpj      String   @unique
+  plan      String   @default("free")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users     User[]
+  vehicles  Vehicle[]
+  drivers   Driver[]
+  trips     Trip[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String
+  name         String
+  email        String
+  passwordHash String
+  role         String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  driver       Driver?
+  tripsCreated Trip[]   @relation("TripCreatedBy")
+  costs        TripCost[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+model Vehicle {
+  id        String   @id @default(uuid())
+  tenantId  String
+  plate     String
+  model     String
+  brand     String
+  year      Int
+  type      String
+  currentKm Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  trips     Trip[]
+  kmLogs    KmLog[]
+
+  @@unique([tenantId, plate])
+  @@index([tenantId])
+  @@map("vehicles")
+}
+
+model Driver {
+  id           String   @id @default(uuid())
+  tenantId     String
+  userId       String?  @unique
+  name         String
+  cpf          String
+  cnhNumber    String
+  cnhCategory  String
+  cnhExpiresAt DateTime
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  user         User?    @relation(fields: [userId], references: [id])
+  trips        Trip[]
+  kmLogs       KmLog[]
+
+  @@unique([tenantId, cpf])
+  @@index([tenantId])
+  @@map("drivers")
+}
+
+model Trip {
+  id                 String    @id @default(uuid())
+  tenantId           String
+  driverId           String
+  vehicleId          String
+  originAddress      String
+  originLat          Decimal?  @db.Decimal(10, 7)
+  originLng          Decimal?  @db.Decimal(10, 7)
+  destinationAddress String
+  destinationLat     Decimal?  @db.Decimal(10, 7)
+  destinationLng     Decimal?  @db.Decimal(10, 7)
+  status             String    @default("draft")
+  kmStart            Int
+  kmEnd              Int?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  notes              String?
+  createdBy          String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  tenant             Tenant    @relation(fields: [tenantId], references: [id])
+  driver             Driver    @relation(fields: [driverId], references: [id])
+  vehicle            Vehicle   @relation(fields: [vehicleId], references: [id])
+  creator            User      @relation("TripCreatedBy", fields: [createdBy], references: [id])
+  costs              TripCost[]
+  kmLogs             KmLog[]
+  checklists         TripChecklist[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, driverId])
+  @@map("trips")
+}
+
+model TripCost {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tripId      String
+  category    String
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  receiptUrl  String?
+  paidAt      DateTime
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  trip        Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  creator     User     @relation(fields: [createdBy], references: [id])
+
+  @@index([tenantId, tripId])
+  @@map("trip_costs")
+}
+
+model KmLog {
+  id                 String   @id @default(uuid())
+  tenantId           String
+  tripId             String
+  vehicleId          String
+  driverId           String
+  kmStart            Int
+  kmEnd              Int?
+  photoOdometerUrl   String?
+  loggedAt           DateTime @default(now())
+  eventType          String
+
+  trip               Trip     @relation(fields: [tripId], references: [id])
+  vehicle            Vehicle  @relation(fields: [vehicleId], references: [id])
+  driver             Driver   @relation(fields: [driverId], references: [id])
+
+  @@index([tenantId, tripId])
+  @@index([tenantId, vehicleId])
+  @@map("km_logs")
+}
+
+model ChecklistTemplate {
+  id        String          @id @default(uuid())
+  tenantId  String
+  name      String
+  type      String
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+
+  items     ChecklistItem[]
+  instances TripChecklist[]
+
+  @@index([tenantId])
+  @@map("checklist_templates")
+}
+
+model ChecklistItem {
+  id          String            @id @default(uuid())
+  templateId  String
+  description String
+  isRequired  Boolean           @default(true)
+  orderIndex  Int
+
+  template    ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  responses   ChecklistResponse[]
+
+  @@map("checklist_items")
+}
+
+model TripChecklist {
+  id          String             @id @default(uuid())
+  tenantId    String
+  tripId      String
+  templateId  String
+  type        String
+  completedBy String?
+  completedAt DateTime?
+  createdAt   DateTime           @default(now())
+
+  trip        Trip               @relation(fields: [tripId], references: [id])
+  template    ChecklistTemplate  @relation(fields: [templateId], references: [id])
+  responses   ChecklistResponse[]
+
+  @@index([tenantId, tripId])
+  @@map("trip_checklists")
+}
+
+model ChecklistResponse {
+  id              String        @id @default(uuid())
+  tripChecklistId String
+  itemId          String
+  passed          Boolean
+  notes           String?
+  photoUrl        String?
+
+  checklist       TripChecklist @relation(fields: [tripChecklistId], references: [id], onDelete: Cascade)
+  item            ChecklistItem @relation(fields: [itemId], references: [id])
+
+  @@unique([tripChecklistId, itemId])
+  @@map("checklist_responses")
+}
