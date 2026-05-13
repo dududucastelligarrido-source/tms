@@ -1,8 +1,8 @@
 // packages/types/src/api.ts
-import type { CostCategory, ChecklistType, CnhCategory, VehicleType } from './entities.js'
+import type { CostCategory, CnhCategory, VehicleType, UserRole } from './entities.js'
 
 export interface LoginRequest { email: string; password: string }
-export interface LoginResponse { token: string; refreshToken: string; user: { id: string; name: string; role: string; tenantId: string } }
+export interface LoginResponse { token: string; refreshToken: string; user: { id: string; name: string; role: UserRole; tenantId: string } }
 
 export interface CreateTripRequest {
   driverId: string
