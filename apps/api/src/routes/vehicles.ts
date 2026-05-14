@@ -6,7 +6,7 @@ import { requireRole } from '../middleware/require-role.js'
 import { prisma } from '../plugins/prisma.js'
 
 const CreateVehicleSchema = z.object({
-  plate: z.string().min(1),
+  plate: z.string().min(7).max(8),
   model: z.string().min(1),
   brand: z.string().min(1),
   year: z.number().int().min(1990).max(new Date().getFullYear() + 1),
@@ -22,9 +22,34 @@ export const vehicleRoutes: FastifyPluginAsync = async (fastify) => {
     return prisma.vehicle.findMany({ where: { isActive: true }, orderBy: { plate: 'asc' } })
   })
 
-  fastify.post('/vehicles', { preHandler: [requireRole('admin')] }, async (request, reply) => {
-    const data = CreateVehicleSchema.parse(request.body)
+  fastify.get('/vehicles/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    const vehicle = await prisma.vehicle.findFirstOrThrow({ where: { id } }).catch(() => {
+      return reply.status(404).send({ error: 'Vehicle not found' })
+    })
+    return vehicle
+  })
+
+  fastify.post('/vehicles', { preHandler: requireRole('admin') }, async (request, reply) => {
+    let data: z.infer<typeof CreateVehicleSchema>
+    try { data = CreateVehicleSchema.parse(request.body) }
+    catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
     const vehicle = await prisma.vehicle.create({ data })
     return reply.status(201).send(vehicle)
+  })
+
+  fastify.patch('/vehicles/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    let data: Partial<z.infer<typeof CreateVehicleSchema>>
+    try { data = CreateVehicleSchema.partial().parse(request.body) }
+    catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
+    const vehicle = await prisma.vehicle.update({ where: { id }, data })
+    return vehicle
+  })
+
+  fastify.delete('/vehicles/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    await prisma.vehicle.update({ where: { id }, data: { isActive: false } })
+    return reply.status(204).send()
   })
 }
