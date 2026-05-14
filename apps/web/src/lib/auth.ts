@@ -16,7 +16,8 @@ export function getUser(): { id: string; name: string; role: string; tenantId: s
   const token = getToken()
   if (!token) return null
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(b64))
     return { id: payload.sub, name: payload.name ?? '', role: payload.role, tenantId: payload.tenantId }
   } catch { return null }
 }

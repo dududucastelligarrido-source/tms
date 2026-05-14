@@ -37,6 +37,14 @@ export default function NewTripPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (form.originAddress && form.originLat === 0) {
+      alert('Aguardando geocodificação da origem. Clique fora do campo e tente novamente.')
+      return
+    }
+    if (form.destinationAddress && form.destinationLat === 0) {
+      alert('Aguardando geocodificação do destino. Clique fora do campo e tente novamente.')
+      return
+    }
     const trip = await createTrip.mutateAsync(form)
     navigate(`/trips/${(trip as any).id}`)
   }

@@ -31,7 +31,10 @@ export function useStartTrip() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.patch<any>(`/trips/${id}/start`),
-    onSuccess: (_: any, id: string) => qc.invalidateQueries({ queryKey: ['trips', id] }),
+    onSuccess: (_: any, id: string) => {
+      qc.invalidateQueries({ queryKey: ['trips'] })
+      qc.invalidateQueries({ queryKey: ['trips', id] })
+    },
   })
 }
 

@@ -18,7 +18,7 @@ export default function DashboardPage() {
 
   const totalCosts = allTrips.flatMap((t: any) => t.costs ?? []).reduce((sum: number, c: any) => sum + Number(c.amount), 0)
   const completedToday = allTrips.filter((t: any) =>
-    t.status === 'completed' && new Date(t.completedAt).toDateString() === new Date().toDateString()
+    t.status === 'completed' && t.completedAt && new Date(t.completedAt).toDateString() === new Date().toDateString()
   )
 
   return (
