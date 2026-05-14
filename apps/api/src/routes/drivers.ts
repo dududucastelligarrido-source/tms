@@ -46,7 +46,7 @@ export const driverRoutes: FastifyPluginAsync = async (fastify) => {
     const driver = await prisma.driver.update({
       where: { id },
       data: { ...data, ...(data.cnhExpiresAt ? { cnhExpiresAt: new Date(data.cnhExpiresAt) } : {}) },
-    })
+    }).catch(() => reply.status(404).send({ error: 'Driver not found' }))
     return driver
   })
 }

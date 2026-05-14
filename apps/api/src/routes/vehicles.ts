@@ -43,13 +43,17 @@ export const vehicleRoutes: FastifyPluginAsync = async (fastify) => {
     let data: Partial<z.infer<typeof CreateVehicleSchema>>
     try { data = CreateVehicleSchema.partial().parse(request.body) }
     catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
-    const vehicle = await prisma.vehicle.update({ where: { id }, data })
+    const vehicle = await prisma.vehicle.update({ where: { id }, data }).catch(() =>
+      reply.status(404).send({ error: 'Vehicle not found' })
+    )
     return vehicle
   })
 
   fastify.delete('/vehicles/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
-    await prisma.vehicle.update({ where: { id }, data: { isActive: false } })
+    await prisma.vehicle.update({ where: { id }, data: { isActive: false } }).catch(() =>
+      reply.status(404).send({ error: 'Vehicle not found' })
+    )
     return reply.status(204).send()
   })
 }

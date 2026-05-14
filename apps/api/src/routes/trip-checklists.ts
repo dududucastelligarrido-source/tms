@@ -4,6 +4,17 @@ import { authenticate } from '../middleware/authenticate.js'
 import { tenantScope } from '../middleware/tenant-scope.js'
 import { prisma } from '../plugins/prisma.js'
 
+async function assertTripAccess(userId: string, role: string, driverId: string, reply: any) {
+  if (role === 'motorista') {
+    const driver = await prisma.driver.findFirst({ where: { userId } })
+    if (!driver || driver.id !== driverId) {
+      await reply.status(403).send({ error: 'You can only access checklists for your own trip' })
+      return false
+    }
+  }
+  return true
+}
+
 export const tripChecklistRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
   fastify.addHook('preHandler', tenantScope)
@@ -14,11 +25,14 @@ export const tripChecklistRoutes: FastifyPluginAsync = async (fastify) => {
     try { body = z.object({ templateId: z.string().uuid(), type: z.enum(['departure', 'arrival', 'driver_change']) }).parse(request.body) }
     catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
 
-    await prisma.trip.findFirstOrThrow({ where: { id: tripId } })
+    const trip = await prisma.trip.findFirstOrThrow({ where: { id: tripId } })
+    const allowed = await assertTripAccess(request.user.sub, request.user.role, trip.driverId, reply)
+    if (!allowed) return
+
     await prisma.checklistTemplate.findFirstOrThrow({ where: { id: body.templateId } })
 
     const checklist = await prisma.tripChecklist.create({
-      data: { tripId, templateId: body.templateId, type: body.type },
+      data: { tenantId: trip.tenantId, tripId, templateId: body.templateId, type: body.type },
       include: { template: { include: { items: { orderBy: { orderIndex: 'asc' } } } } },
     })
     return reply.status(201).send(checklist)
@@ -30,6 +44,12 @@ export const tripChecklistRoutes: FastifyPluginAsync = async (fastify) => {
       where: { id: checklistId },
       include: { template: { include: { items: { orderBy: { orderIndex: 'asc' } } } }, responses: true },
     }).catch(() => reply.status(404).send({ error: 'Checklist not found' }))
+    if (!checklist) return
+
+    const trip = await prisma.trip.findFirstOrThrow({ where: { id: (checklist as any).tripId } })
+    const allowed = await assertTripAccess(request.user.sub, request.user.role, trip.driverId, reply)
+    if (!allowed) return
+
     return checklist
   })
 
@@ -51,6 +71,10 @@ export const tripChecklistRoutes: FastifyPluginAsync = async (fastify) => {
       where: { id: checklistId },
       include: { template: { include: { items: true } } },
     })
+
+    const trip = await prisma.trip.findFirstOrThrow({ where: { id: checklist.tripId } })
+    const allowed = await assertTripAccess(request.user.sub, request.user.role, trip.driverId, reply)
+    if (!allowed) return
 
     const requiredItems = checklist.template.items.filter(i => i.isRequired).map(i => i.id)
     const respondedIds = body.responses.map(r => r.itemId)
@@ -75,7 +99,7 @@ export const tripChecklistRoutes: FastifyPluginAsync = async (fastify) => {
 
     return prisma.tripChecklist.findFirstOrThrow({
       where: { id: checklistId },
-      include: { responses: true },
+      include: { template: { include: { items: { orderBy: { orderIndex: 'asc' } } } }, responses: true },
     })
   })
 }

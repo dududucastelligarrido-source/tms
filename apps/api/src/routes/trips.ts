@@ -18,6 +18,11 @@ const CreateTripSchema = z.object({
   notes: z.string().optional(),
 })
 
+// Returns the driver record linked to a motorista user, or null.
+async function getLinkedDriver(userId: string) {
+  return prisma.driver.findFirst({ where: { userId } })
+}
+
 export const tripRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
   fastify.addHook('preHandler', tenantScope)
@@ -35,7 +40,7 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
     if (query.vehicleId) where.vehicleId = query.vehicleId
 
     if (request.user.role === 'motorista') {
-      const driver = await prisma.driver.findFirst({ where: { userId: request.user.sub } })
+      const driver = await getLinkedDriver(request.user.sub)
       if (driver) where.driverId = driver.id
     }
 
@@ -65,9 +70,18 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(trip)
   })
 
+  // START: draft → active
+  // Motorista can only start their own trip; admin can start any trip.
   fastify.patch('/trips/:id/start', async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
     const trip = await prisma.trip.findFirstOrThrow({ where: { id } })
+
+    if (request.user.role === 'motorista') {
+      const driver = await getLinkedDriver(request.user.sub)
+      if (!driver || driver.id !== trip.driverId) {
+        return reply.status(403).send({ error: 'You can only start your own trip' })
+      }
+    }
 
     if (trip.status !== 'draft') {
       return reply.status(422).send({ error: 'Trip must be in draft status to start' })
@@ -93,6 +107,8 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
     return prisma.trip.findFirstOrThrow({ where: { id } })
   })
 
+  // COMPLETE: active → completed
+  // Motorista can only complete their own trip; admin can complete any trip.
   fastify.patch('/trips/:id/complete', async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
     let body: { kmEnd: number }
@@ -101,11 +117,24 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
 
     const trip = await prisma.trip.findFirstOrThrow({ where: { id } })
 
+    if (request.user.role === 'motorista') {
+      const driver = await getLinkedDriver(request.user.sub)
+      if (!driver || driver.id !== trip.driverId) {
+        return reply.status(403).send({ error: 'You can only complete your own trip' })
+      }
+    }
+
     if (trip.status !== 'active') {
       return reply.status(422).send({ error: 'Trip must be active to complete' })
     }
     if (body.kmEnd <= trip.kmStart) {
       return reply.status(422).send({ error: 'km_end must be greater than km_start' })
+    }
+
+    // Guard against rolling back the vehicle odometer
+    const vehicle = await prisma.vehicle.findFirstOrThrow({ where: { id: trip.vehicleId } })
+    if (body.kmEnd < vehicle.currentKm) {
+      return reply.status(422).send({ error: 'km_end cannot be less than the vehicle current odometer' })
     }
 
     const arrivalChecklist = await prisma.tripChecklist.findFirst({
@@ -153,6 +182,9 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (trip.status !== 'active') {
       return reply.status(422).send({ error: 'Trip must be active to change driver' })
+    }
+    if (body.kmCurrent < trip.kmStart) {
+      return reply.status(422).send({ error: 'km_current cannot be less than km_start' })
     }
 
     const template = await prisma.checklistTemplate.findFirst({
