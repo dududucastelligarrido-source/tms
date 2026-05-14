@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTrips } from '../../hooks/useTrips.js'
+import { getUser } from '../../lib/auth.js'
 
 const STATUS_LABELS: Record<string, string> = { draft: 'Rascunho', active: 'Em Curso', completed: 'Concluída', cancelled: 'Cancelada' }
 const STATUS_COLORS: Record<string, string> = { draft: 'bg-blue-950 text-blue-400', active: 'bg-green-950 text-green-400', completed: 'bg-slate-800 text-slate-400', cancelled: 'bg-red-950 text-red-400' }
@@ -8,14 +9,17 @@ const STATUS_COLORS: Record<string, string> = { draft: 'bg-blue-950 text-blue-40
 export default function TripsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const { data: trips = [], isLoading } = useTrips(statusFilter ? { status: statusFilter } : undefined)
+  const user = getUser()
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-slate-100">Viagens</h1>
-        <Link to="/trips/new" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-          + Nova Viagem
-        </Link>
+        {user?.role === 'admin' && (
+          <Link to="/trips/new" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            + Nova Viagem
+          </Link>
+        )}
       </div>
 
       <div className="flex gap-2 mb-4 flex-wrap">
