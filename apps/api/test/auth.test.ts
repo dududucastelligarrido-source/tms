@@ -39,5 +39,17 @@ describe('POST /api/v1/auth/login', () => {
     })
 
     expect(res.statusCode).toBe(401)
+    expect(res.json()).toEqual({ error: 'Invalid credentials' })
+  })
+
+  it('returns 401 with same message for unknown email', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'nobody@test.com', password: 'senha123' },
+    })
+
+    expect(res.statusCode).toBe(401)
+    expect(res.json()).toEqual({ error: 'Invalid credentials' })
   })
 })

@@ -14,6 +14,8 @@ export async function cleanDb() {
   await prisma.trip.deleteMany()
   await prisma.driver.deleteMany()
   await prisma.vehicle.deleteMany()
+  await prisma.checklistItem.deleteMany()
+  await prisma.checklistTemplate.deleteMany()
   await prisma.user.deleteMany()
   await prisma.tenant.deleteMany()
 }

@@ -5,6 +5,8 @@ interface TenantContext { tenantId: string }
 
 export const tenantStorage = new AsyncLocalStorage<TenantContext>()
 
-export async function tenantScope(request: FastifyRequest, _reply: FastifyReply) {
-  tenantStorage.enterWith({ tenantId: request.user.tenantId })
+// Callback-based (not async) so done() fires inside run() — propagating the async context
+// into the route handler and all downstream hooks.
+export function tenantScope(request: FastifyRequest, _reply: FastifyReply, done: () => void) {
+  tenantStorage.run({ tenantId: request.user.tenantId }, done)
 }

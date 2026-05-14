@@ -1,7 +1,8 @@
 import { jwtVerify } from 'jose'
 import type { FastifyRequest, FastifyReply } from 'fastify'
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET!)
+if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET env var is required')
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
 
 export interface JWTPayload {
   sub: string

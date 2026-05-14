@@ -18,7 +18,6 @@ function createPrismaClient() {
 
     if (params.model && TENANT_SCOPED_MODELS.includes(params.model)) {
       const readOps = ['findMany', 'findFirst', 'findFirstOrThrow', 'count', 'aggregate']
-      const writeOps = ['create', 'createMany']
       const updateOps = ['update', 'updateMany', 'upsert']
       const deleteOps = ['delete', 'deleteMany']
 
@@ -29,10 +28,11 @@ function createPrismaClient() {
       } else if (readOps.includes(params.action)) {
         params.args = params.args ?? {}
         params.args.where = { ...params.args.where, tenantId: ctx.tenantId }
-      } else if (writeOps.includes(params.action)) {
-        if (params.action === 'create') {
-          params.args.data = { ...params.args.data, tenantId: ctx.tenantId }
-        }
+      } else if (params.action === 'create') {
+        params.args.data = { ...params.args.data, tenantId: ctx.tenantId }
+      } else if (params.action === 'createMany') {
+        const rows = Array.isArray(params.args.data) ? params.args.data : [params.args.data]
+        params.args.data = rows.map((row: object) => ({ ...row, tenantId: ctx.tenantId }))
       } else if (updateOps.includes(params.action)) {
         params.args.where = { ...params.args.where, tenantId: ctx.tenantId }
       } else if (deleteOps.includes(params.action)) {
