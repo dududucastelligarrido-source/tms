@@ -65,7 +65,7 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
     try { data = CreateTripSchema.parse(request.body) }
     catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
     const trip = await prisma.trip.create({
-      data: { ...data, createdBy: request.user.sub },
+      data: { ...data, createdBy: request.user.sub } as any,
     })
     return reply.status(201).send(trip)
   })

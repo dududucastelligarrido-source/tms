@@ -34,7 +34,7 @@ export const driverRoutes: FastifyPluginAsync = async (fastify) => {
     let data: z.infer<typeof CreateDriverSchema>
     try { data = CreateDriverSchema.parse(request.body) }
     catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
-    const driver = await prisma.driver.create({ data: { ...data, cnhExpiresAt: new Date(data.cnhExpiresAt) } })
+    const driver = await prisma.driver.create({ data: { ...data, cnhExpiresAt: new Date(data.cnhExpiresAt) } as any })
     return reply.status(201).send(driver)
   })
 

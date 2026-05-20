@@ -32,7 +32,7 @@ export const checklistTemplateRoutes: FastifyPluginAsync = async (fastify) => {
     catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
     const { items, ...templateData } = parsed
     const template = await prisma.checklistTemplate.create({
-      data: { ...templateData, items: { create: items } },
+      data: { ...templateData, items: { create: items } } as any,
       include: { items: { orderBy: { orderIndex: 'asc' } } },
     })
     return reply.status(201).send(template)

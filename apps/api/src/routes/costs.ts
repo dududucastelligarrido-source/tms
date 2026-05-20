@@ -34,7 +34,7 @@ export const costRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const cost = await prisma.tripCost.create({
-      data: { ...data, tripId, createdBy: request.user.sub, paidAt: new Date(data.paidAt) },
+      data: { ...data, tripId, createdBy: request.user.sub, paidAt: new Date(data.paidAt) } as any,
     })
     return reply.status(201).send(cost)
   })

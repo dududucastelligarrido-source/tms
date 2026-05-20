@@ -34,7 +34,7 @@ export const vehicleRoutes: FastifyPluginAsync = async (fastify) => {
     let data: z.infer<typeof CreateVehicleSchema>
     try { data = CreateVehicleSchema.parse(request.body) }
     catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
-    const vehicle = await prisma.vehicle.create({ data })
+    const vehicle = await prisma.vehicle.create({ data: data as any })
     return reply.status(201).send(vehicle)
   })
 

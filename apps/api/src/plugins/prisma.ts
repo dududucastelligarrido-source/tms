@@ -11,7 +11,7 @@ const TENANT_SCOPED_MODELS = [
 function createPrismaClient() {
   const client = new PrismaClient()
 
-  // @ts-expect-error Prisma middleware legacy API
+  // @ts-ignore Prisma middleware legacy API
   client.$use(async (params: any, next: any) => {
     const ctx = tenantStorage.getStore()
     if (!ctx?.tenantId) return next(params)
