@@ -11,6 +11,7 @@ import VehiclesPage from './pages/vehicles/VehiclesPage.js'
 import DriversPage from './pages/drivers/DriversPage.js'
 import UsersPage from './pages/users/UsersPage.js'
 import ProfilePage from './pages/profile/ProfilePage.js'
+import ReportsPage from './pages/reports/ReportsPage.js'
 import Layout from './components/Layout.js'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="drivers" element={<DriversPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="reports" element={<ReportsPage />} />
       </Route>
     </Routes>
   )
