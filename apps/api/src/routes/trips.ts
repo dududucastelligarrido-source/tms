@@ -15,6 +15,10 @@ const CreateTripSchema = z.object({
   destinationLat: z.number().optional(),
   destinationLng: z.number().optional(),
   kmStart: z.number().int().min(0),
+  cartaFrete: z.number().positive().optional(),
+  pesoCarga: z.number().positive().optional(),
+  adiantamento: z.number().min(0).optional(),
+  departureTime: z.string().datetime().optional(),
   notes: z.string().optional(),
 })
 

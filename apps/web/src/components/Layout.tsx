@@ -8,6 +8,7 @@ const navItems = [
   { to: '/drivers', label: 'Motoristas' },
   { to: '/users', label: 'Usuários' },
   { to: '/reports', label: 'Relatórios' },
+  { to: '/fuel', label: 'Combustível' },
 ]
 
 export default function Layout() {

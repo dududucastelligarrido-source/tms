@@ -19,6 +19,7 @@ model Tenant {
   vehicles  Vehicle[]
   drivers   Driver[]
   trips     Trip[]
+  fuelLogs  FuelLog[]
 
   @@map("tenants")
 }
@@ -58,6 +59,7 @@ model Vehicle {
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   trips     Trip[]
   kmLogs    KmLog[]
+  fuelLogs  FuelLog[]
 
   @@unique([tenantId, plate])
   @@index([tenantId])
@@ -80,6 +82,7 @@ model Driver {
   user         User?    @relation(fields: [userId], references: [id])
   trips        Trip[]
   kmLogs       KmLog[]
+  fuelLogs     FuelLog[]
 
   @@unique([tenantId, cpf])
   @@index([tenantId])
@@ -102,6 +105,11 @@ model Trip {
   kmEnd              Int?
   startedAt          DateTime?
   completedAt        DateTime?
+  departureTime      DateTime?
+  arrivalTime        DateTime?
+  cartaFrete         Decimal?  @db.Decimal(10, 2)
+  pesoCarga          Decimal?  @db.Decimal(10, 3)
+  adiantamento       Decimal?  @db.Decimal(10, 2)
   notes              String?
   createdBy          String
   createdAt          DateTime  @default(now())
@@ -114,6 +122,7 @@ model Trip {
   costs              TripCost[]
   kmLogs             KmLog[]
   checklists         TripChecklist[]
+  fuelLogs           FuelLog[]
 
   @@index([tenantId, status])
   @@index([tenantId, driverId])
@@ -219,4 +228,30 @@ model ChecklistResponse {
 
   @@unique([tripChecklistId, itemId])
   @@map("checklist_responses")
+}
+
+model FuelLog {
+  id            String   @id @default(uuid())
+  tenantId      String
+  vehicleId     String
+  driverId      String
+  tripId        String?
+  loggedAt      DateTime
+  fuelType      String
+  liters        Decimal  @db.Decimal(10, 3)
+  pricePerLiter Decimal  @db.Decimal(10, 4)
+  totalAmount   Decimal  @db.Decimal(10, 2)
+  station       String?
+  kmAtFueling   Int
+  kmPerLiter    Decimal? @db.Decimal(10, 3)
+  createdAt     DateTime @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  vehicle  Vehicle  @relation(fields: [vehicleId], references: [id])
+  driver   Driver   @relation(fields: [driverId], references: [id])
+  trip     Trip?    @relation(fields: [tripId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, vehicleId])
+  @@map("fuel_logs")
 }

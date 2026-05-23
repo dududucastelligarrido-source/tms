@@ -18,6 +18,7 @@ export default function NewTripPage() {
     originAddress: '', originLat: 0, originLng: 0,
     destinationAddress: '', destinationLat: 0, destinationLng: 0,
     kmStart: 0, notes: '',
+    cartaFrete: '', pesoCarga: '', adiantamento: '', departureTime: '',
   })
 
   function geocodeAddress(address: string, field: 'origin' | 'destination') {
@@ -37,7 +38,15 @@ export default function NewTripPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const trip = await createTrip.mutateAsync(form)
+    const payload: Record<string, unknown> = { ...form }
+    if (form.cartaFrete) payload.cartaFrete = Number(form.cartaFrete)
+    else delete payload.cartaFrete
+    if (form.pesoCarga) payload.pesoCarga = Number(form.pesoCarga)
+    else delete payload.pesoCarga
+    if (form.adiantamento) payload.adiantamento = Number(form.adiantamento)
+    else delete payload.adiantamento
+    if (!form.departureTime) delete payload.departureTime
+    const trip = await createTrip.mutateAsync(payload as any)
     navigate(`/trips/${(trip as any).id}`)
   }
 
@@ -99,6 +108,37 @@ export default function NewTripPage() {
             <input type="number" value={form.kmStart} onChange={e => setForm(f => ({ ...f, kmStart: Number(e.target.value) }))} required min={0}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm"
             />
+          </div>
+
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">Horário de Saída</label>
+            <input type="datetime-local" value={form.departureTime} onChange={e => setForm(f => ({ ...f, departureTime: e.target.value }))}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Carta de Frete (R$)</label>
+              <input type="number" step="0.01" min="0" value={form.cartaFrete} onChange={e => setForm(f => ({ ...f, cartaFrete: e.target.value }))}
+                placeholder="0,00"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Adiantamento (R$)</label>
+              <input type="number" step="0.01" min="0" value={form.adiantamento} onChange={e => setForm(f => ({ ...f, adiantamento: e.target.value }))}
+                placeholder="0,00"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Peso da Carga (ton)</label>
+              <input type="number" step="0.001" min="0" value={form.pesoCarga} onChange={e => setForm(f => ({ ...f, pesoCarga: e.target.value }))}
+                placeholder="0,000"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm"
+              />
+            </div>
           </div>
 
           <button type="submit" disabled={createTrip.isPending}

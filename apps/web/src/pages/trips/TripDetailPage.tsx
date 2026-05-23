@@ -52,6 +52,22 @@ export default function TripDetailPage() {
           </div>
         </div>
 
+        {(t.cartaFrete || t.adiantamento || t.pesoCarga) && (
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+            <h2 className="text-sm font-semibold text-slate-400 uppercase mb-1">Financeiro</h2>
+            <div className="grid grid-cols-2 gap-4">
+              {t.cartaFrete && <div><span className="text-slate-400 text-xs uppercase">Carta de Frete</span><p className="text-slate-100">R$ {Number(t.cartaFrete).toFixed(2)}</p></div>}
+              {t.adiantamento && <div><span className="text-slate-400 text-xs uppercase">Adiantamento</span><p className="text-slate-100">R$ {Number(t.adiantamento).toFixed(2)}</p></div>}
+              {t.cartaFrete && t.adiantamento && (
+                <div><span className="text-slate-400 text-xs uppercase">Saldo a Pagar</span>
+                  <p className="text-green-400 font-semibold">R$ {(Number(t.cartaFrete) - Number(t.adiantamento)).toFixed(2)}</p>
+                </div>
+              )}
+              {t.pesoCarga && <div><span className="text-slate-400 text-xs uppercase">Peso da Carga</span><p className="text-slate-100">{Number(t.pesoCarga).toFixed(3)} ton</p></div>}
+            </div>
+          </div>
+        )}
+
         {t.costs?.length > 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
             <h2 className="text-sm font-semibold text-slate-400 uppercase mb-3">Custos</h2>
