@@ -11,6 +11,7 @@ if (!email || !newPassword) {
 }
 
 const passwordHash = await hash(newPassword)
-const user = await prisma.user.update({ where: { email }, data: { passwordHash } })
-console.log(`✅ Senha atualizada para ${user.email}`)
+const result = await prisma.user.updateMany({ where: { email }, data: { passwordHash } })
+if (result.count === 0) { console.error('❌ Usuário não encontrado'); process.exit(1) }
+console.log(`✅ Senha atualizada para ${email}`)
 await prisma.$disconnect()
