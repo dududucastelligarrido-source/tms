@@ -22,4 +22,4 @@ RUN pnpm db:generate && pnpm build
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/server.js"]
+CMD ["node", "dist/server.js"]
