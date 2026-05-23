@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts'
 import { AlertOctagon, AlertTriangle, Truck, Wrench } from 'lucide-react'
+import { semantic } from '../../lib/theme.js'
 import { useTrips } from '../../hooks/useTrips.js'
 import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
@@ -20,8 +21,8 @@ const PERIOD_OPTS = [
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-blue-950 text-blue-400',
-  active: 'bg-green-950 text-green-400',
-  completed: 'bg-slate-800 text-slate-400',
+  active: 'bg-blue-950 text-blue-400',
+  completed: 'bg-green-950/50 text-green-400',
   cancelled: 'bg-red-950 text-red-400',
 }
 const STATUS_LABELS: Record<string, string> = {
@@ -42,8 +43,25 @@ function TrendBadge({ pct }: { pct: number | null }) {
   )
 }
 
-function KpiCard({ label, value, sub, color, small, trend }: {
-  label: string; value: string; sub?: string; color: string; small?: boolean; trend?: number | null
+function Sparkline({ data, dataKey, color }: { data: any[]; dataKey: string; color: string }) {
+  return (
+    <ResponsiveContainer width="100%" height={28}>
+      <LineChart data={data} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+        <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
+function KpiCard({ label, value, sub, color, small, trend, sparkline, progress }: {
+  label: string
+  value: string
+  sub?: string
+  color: string
+  small?: boolean
+  trend?: number | null
+  sparkline?: { data: any[]; dataKey: string; color: string }
+  progress?: number
 }) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -53,6 +71,16 @@ function KpiCard({ label, value, sub, color, small, trend }: {
         {trend !== undefined && <TrendBadge pct={trend ?? null} />}
       </div>
       {sub && <div className="text-slate-500 text-xs mt-0.5">{sub}</div>}
+      {progress !== undefined && (
+        <div className="mt-2 h-1 bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+        </div>
+      )}
+      {sparkline && (
+        <div className="mt-2 opacity-50">
+          <Sparkline data={sparkline.data} dataKey={sparkline.dataKey} color={sparkline.color} />
+        </div>
+      )}
     </div>
   )
 }
@@ -91,6 +119,7 @@ export default function DashboardPage() {
   const kmByDriver: any[] = dash?.kmByDriver ?? []
   const driverRanking: any[] = dash?.driverRanking ?? []
   const fleetSummary = dash?.fleetSummary
+  const dailyTrend: any[] = dash?.dailyTrend ?? []
 
   return (
     <div className="p-6 space-y-6">
@@ -126,7 +155,7 @@ export default function DashboardPage() {
 
       {/* Alertas */}
       {isAdmin && alerts && totalAlerts > 0 && (
-        <div className="bg-red-950/40 border border-red-900 rounded-xl p-4 space-y-2">
+        <div className="bg-slate-900 border-l-4 border-red-600 rounded-r-xl p-4 space-y-2">
           <h2 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-3">Alertas</h2>
           <div className="space-y-2">
             {alerts.cnhExpirando.map((a: any) => (
@@ -183,16 +212,20 @@ export default function DashboardPage() {
           <div>
             <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Financeiro — últimos {period} dias</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <KpiCard label="Faturamento" value={`R$ ${fmt(kpis.faturamento)}`} color="text-green-400" trend={trends?.faturamento} />
+              <KpiCard label="Faturamento" value={`R$ ${fmt(kpis.faturamento)}`}
+                color={semantic.positive} trend={trends?.faturamento}
+                sparkline={{ data: dailyTrend, dataKey: 'faturamento', color: '#22c55e' }} />
               <KpiCard label="Custos Totais" value={`R$ ${fmt(kpis.custosTotal)}`}
                 sub={`Diretos R$ ${fmt(kpis.custosDiretos)} · Combustível R$ ${fmt(kpis.custosCombustivel)}`}
-                color="text-red-400" small trend={trends?.custosTotal} />
+                color={semantic.negative} small trend={trends?.custosTotal}
+                sparkline={{ data: dailyTrend, dataKey: 'custos', color: '#ef4444' }} />
               <KpiCard label="Margem Bruta" value={`R$ ${fmt(kpis.margem)}`}
                 sub={`${kpis.margemPct.toFixed(1)}% do faturamento`}
-                color={kpis.margem >= 0 ? 'text-blue-400' : 'text-red-400'} small trend={trends?.margem} />
+                color={kpis.margem >= 0 ? semantic.neutral : semantic.negative} small trend={trends?.margem}
+                progress={kpis.margemPct} />
               <KpiCard label="KM Rodados" value={kpis.kmRodados.toLocaleString('pt-BR')}
                 sub={kpis.mediaKmL ? `Média ${kpis.mediaKmL} km/L` : undefined}
-                color="text-amber-400" trend={trends?.kmRodados} />
+                color={semantic.neutral} trend={trends?.kmRodados} />
             </div>
           </div>
 
@@ -200,10 +233,10 @@ export default function DashboardPage() {
             <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Viagens — últimos {period} dias</h2>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <KpiCard label="Total" value={String(kpis.viagens.total)} color="text-slate-200" />
-              <KpiCard label="Concluídas" value={String(kpis.viagens.completed)} color="text-slate-400" />
-              <KpiCard label="Em Curso" value={String(kpis.viagens.active)} color="text-green-400" />
-              <KpiCard label="Rascunhos" value={String(kpis.viagens.draft)} color="text-blue-400" />
-              <KpiCard label="Canceladas" value={String(kpis.viagens.cancelled)} color="text-red-400" />
+              <KpiCard label="Concluídas" value={String(kpis.viagens.completed)} color={semantic.positive} />
+              <KpiCard label="Em Curso" value={String(kpis.viagens.active)} color={semantic.neutral} />
+              <KpiCard label="Rascunhos" value={String(kpis.viagens.draft)} color={semantic.neutral} />
+              <KpiCard label="Canceladas" value={String(kpis.viagens.cancelled)} color={semantic.negative} />
             </div>
           </div>
         </>

@@ -204,6 +204,30 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       cartaFrete: t.cartaFrete ? Number(t.cartaFrete) : null,
     }))
 
+    // ── Daily trend (últimos 7 dias, para sparklines) ────────────────────
+    const spark7start = new Date(); spark7start.setDate(spark7start.getDate() - 6); spark7start.setHours(0, 0, 0, 0)
+    const sparkMap: Record<string, { faturamento: number; custos: number }> = {}
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(spark7start); d.setDate(d.getDate() + i)
+      sparkMap[d.toISOString().slice(0, 10)] = { faturamento: 0, custos: 0 }
+    }
+    for (const t of completedTrips) {
+      const day = (t.completedAt ?? t.createdAt).toISOString().slice(0, 10)
+      if (day in sparkMap) sparkMap[day].faturamento += Number((t as any).cartaFrete ?? 0)
+    }
+    for (const c of costs) {
+      const day = new Date(c.paidAt).toISOString().slice(0, 10)
+      if (day in sparkMap) sparkMap[day].custos += Number(c.amount)
+    }
+    for (const f of fuelLogs) {
+      const day = new Date(f.loggedAt).toISOString().slice(0, 10)
+      if (day in sparkMap) sparkMap[day].custos += Number(f.totalAmount)
+    }
+    const dailyTrend = Object.values(sparkMap).map(v => ({
+      faturamento: Number(v.faturamento.toFixed(2)),
+      custos: Number(v.custos.toFixed(2)),
+    }))
+
     // ── Média KM/L da frota ───────────────────────────────────────────────
     const dieselLogs = fuelLogs.filter(f => f.fuelType === 'diesel' && f.kmPerLiter)
     const mediaKmL = dieselLogs.length > 0
@@ -290,6 +314,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       driverRanking,
       fleetSummary,
       activeTripsDetail,
+      dailyTrend,
       alerts: { cnhExpirando, viagensLongas, manutencaoPendente },
     }
   })
