@@ -33,6 +33,9 @@ export default function Layout() {
         </nav>
         <div className="border-t border-slate-800 pt-3">
           <div className="text-xs text-slate-500 px-2 mb-1">{user?.role}</div>
+          <NavLink to="/profile" className={({ isActive }) => `block px-3 py-2 text-sm rounded-lg transition-colors ${isActive ? 'bg-blue-950 text-blue-300' : 'text-slate-400 hover:text-slate-200'}`}>
+            Meu Perfil
+          </NavLink>
           <button onClick={logout} className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:text-slate-200 rounded-lg">
             Sair
           </button>

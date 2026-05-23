@@ -17,6 +17,45 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
   fastify.addHook('preHandler', tenantScope)
 
+  fastify.get('/users/me', async (request) => {
+    return prisma.user.findFirstOrThrow({
+      where: { id: request.user.sub },
+      select: { id: true, name: true, email: true, role: true },
+    })
+  })
+
+  fastify.patch('/users/me', async (request, reply) => {
+    const UpdateMeSchema = z.object({
+      name: z.string().min(1).optional(),
+      email: z.string().email().optional(),
+      currentPassword: z.string().optional(),
+      newPassword: z.string().min(6).optional(),
+    })
+    let data: z.infer<typeof UpdateMeSchema>
+    try { data = UpdateMeSchema.parse(request.body) }
+    catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
+
+    const user = await prisma.user.findFirstOrThrow({ where: { id: request.user.sub } })
+
+    if (data.newPassword) {
+      if (!data.currentPassword) return reply.status(400).send({ error: 'Senha atual é obrigatória para trocar a senha' })
+      const { verify } = await import('@node-rs/argon2')
+      const valid = await verify(user.passwordHash, data.currentPassword)
+      if (!valid) return reply.status(401).send({ error: 'Senha atual incorreta' })
+    }
+
+    const updateData: Record<string, unknown> = {}
+    if (data.name) updateData.name = data.name
+    if (data.email) updateData.email = data.email
+    if (data.newPassword) updateData.passwordHash = await hash(data.newPassword)
+
+    return prisma.user.update({
+      where: { id: request.user.sub },
+      data: updateData,
+      select: { id: true, name: true, email: true, role: true },
+    })
+  })
+
   fastify.get('/users', { preHandler: requireRole('admin') }, async (request) => {
     return prisma.user.findMany({
       where: { tenantId: (request as any).tenantId, isActive: true },
