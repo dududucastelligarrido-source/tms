@@ -49,11 +49,18 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     if (data.email) updateData.email = data.email
     if (data.newPassword) updateData.passwordHash = await hash(data.newPassword)
 
-    return prisma.user.update({
-      where: { id: request.user.sub },
-      data: updateData,
-      select: { id: true, name: true, email: true, role: true },
-    })
+    if (Object.keys(updateData).length === 0) return reply.status(400).send({ error: 'Nenhum campo para atualizar' })
+
+    try {
+      return await prisma.user.update({
+        where: { id: request.user.sub },
+        data: updateData,
+        select: { id: true, name: true, email: true, role: true },
+      })
+    } catch (err: any) {
+      if (err.code === 'P2002') return reply.status(409).send({ error: 'Este e-mail já está em uso' })
+      throw err
+    }
   })
 
   fastify.get('/users', { preHandler: requireRole('admin') }, async (request) => {
