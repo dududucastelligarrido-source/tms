@@ -11,12 +11,15 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get('/reports/dashboard', { preHandler: requireRole('admin') }, async (request) => {
     const tenantId = (request as any).tenantId
+    const { period: periodStr } = z.object({ period: z.enum(['7', '30', '90']).default('30') }).parse(request.query)
+    const period = Number(periodStr)
+
     const end = new Date()
     const start = new Date(end)
-    start.setDate(start.getDate() - 29)
+    start.setDate(start.getDate() - (period - 1))
     start.setHours(0, 0, 0, 0)
 
-    const [trips, costs, kmLogs, fuelLogs] = await Promise.all([
+    const [trips, costs, kmLogs, fuelLogs, allDrivers, activeTrips] = await Promise.all([
       prisma.trip.findMany({
         where: { tenantId, createdAt: { gte: start } },
         include: { driver: true },
@@ -28,14 +31,26 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         include: { driver: true, vehicle: true },
       }),
       prisma.fuelLog.findMany({
-        where: { tenantId, loggedAt: { gte: start }, fuelType: 'diesel' },
+        where: { tenantId, loggedAt: { gte: start } },
         orderBy: { loggedAt: 'asc' },
       }),
+      prisma.driver.findMany({ where: { tenantId, isActive: true } }),
+      prisma.trip.findMany({ where: { tenantId, status: 'active' } }),
     ])
 
-    // Trips per day (last 30 days)
+    // ── KPIs financeiros ──────────────────────────────────────────────────
+    const completedTrips = trips.filter(t => t.status === 'completed')
+    const faturamento = completedTrips.reduce((s, t) => s + Number((t as any).cartaFrete ?? 0), 0)
+    const custosDiretos = costs.reduce((s, c) => s + Number(c.amount), 0)
+    const custosCombustivel = fuelLogs.reduce((s, f) => s + Number(f.totalAmount), 0)
+    const custosTotal = custosDiretos + custosCombustivel
+    const margem = faturamento - custosTotal
+    const margemPct = faturamento > 0 ? (margem / faturamento) * 100 : 0
+    const kmRodados = completedTrips.reduce((s, t) => s + (t.kmEnd != null ? t.kmEnd - t.kmStart : 0), 0)
+
+    // ── Viagens por dia ───────────────────────────────────────────────────
     const dayMap: Record<string, number> = {}
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < period; i++) {
       const d = new Date(start); d.setDate(d.getDate() + i)
       dayMap[d.toISOString().slice(0, 10)] = 0
     }
@@ -44,13 +59,37 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       if (day in dayMap) dayMap[day]++
     }
 
-    // Costs by category
+    // ── Faturamento vs Custos por semana/dia ─────────────────────────────
+    function bucketLabel(date: Date): string {
+      if (period === 7) return date.toLocaleDateString('pt-BR', { weekday: 'short' })
+      if (period === 30) return `Sem ${Math.ceil((date.getDate()) / 7)}`
+      return date.toLocaleDateString('pt-BR', { month: 'short' })
+    }
+
+    const revenueMap: Record<string, { faturamento: number; custos: number }> = {}
+    for (const t of completedTrips) {
+      const label = bucketLabel(new Date(t.completedAt ?? t.createdAt))
+      if (!revenueMap[label]) revenueMap[label] = { faturamento: 0, custos: 0 }
+      revenueMap[label].faturamento += Number((t as any).cartaFrete ?? 0)
+    }
+    for (const c of costs) {
+      const label = bucketLabel(new Date(c.paidAt))
+      if (!revenueMap[label]) revenueMap[label] = { faturamento: 0, custos: 0 }
+      revenueMap[label].custos += Number(c.amount)
+    }
+    for (const f of fuelLogs) {
+      const label = bucketLabel(new Date(f.loggedAt))
+      if (!revenueMap[label]) revenueMap[label] = { faturamento: 0, custos: 0 }
+      revenueMap[label].custos += Number(f.totalAmount)
+    }
+
+    // ── Custos por categoria ──────────────────────────────────────────────
     const costsByCategory: Record<string, number> = {}
     for (const c of costs) {
       costsByCategory[c.category] = (costsByCategory[c.category] ?? 0) + Number(c.amount)
     }
 
-    // KM by driver (top 5)
+    // ── KM por motorista (top 5) ──────────────────────────────────────────
     const kmByDriver: Record<string, { name: string; km: number }> = {}
     for (const log of kmLogs) {
       if (log.kmEnd == null) continue
@@ -59,28 +98,63 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       kmByDriver[log.driverId].km += km
     }
 
-    // Fuel KM/L trend (weekly avg)
-    const weekMap: Record<string, { sum: number; count: number }> = {}
-    for (const f of fuelLogs) {
-      if (!f.kmPerLiter) continue
-      const week = `Sem ${Math.ceil((new Date(f.loggedAt).getDate()) / 7)}`
-      if (!weekMap[week]) weekMap[week] = { sum: 0, count: 0 }
-      weekMap[week].sum += Number(f.kmPerLiter)
-      weekMap[week].count++
-    }
+    // ── Média KM/L da frota ───────────────────────────────────────────────
+    const dieselLogs = fuelLogs.filter(f => f.fuelType === 'diesel' && f.kmPerLiter)
+    const mediaKmL = dieselLogs.length > 0
+      ? dieselLogs.reduce((s, f) => s + Number(f.kmPerLiter), 0) / dieselLogs.length
+      : null
+
+    // ── Alertas ───────────────────────────────────────────────────────────
+    const in30days = new Date(); in30days.setDate(in30days.getDate() + 30)
+    const cnhExpirando = allDrivers
+      .filter(d => d.cnhExpiresAt <= in30days)
+      .map(d => ({
+        name: d.name,
+        cnhExpiresAt: d.cnhExpiresAt,
+        daysLeft: Math.ceil((d.cnhExpiresAt.getTime() - Date.now()) / 86400000),
+      }))
+      .sort((a, b) => a.daysLeft - b.daysLeft)
+
+    const now = Date.now()
+    const viagensLongas = activeTrips
+      .filter(t => t.startedAt && (now - t.startedAt.getTime()) > 48 * 3600 * 1000)
+      .map(t => ({
+        id: t.id,
+        origin: t.originAddress,
+        destination: t.destinationAddress,
+        hoursActive: Math.floor((now - t.startedAt!.getTime()) / 3600000),
+      }))
 
     return {
+      period,
+      kpis: {
+        faturamento: Number(faturamento.toFixed(2)),
+        custosDiretos: Number(custosDiretos.toFixed(2)),
+        custosCombustivel: Number(custosCombustivel.toFixed(2)),
+        custosTotal: Number(custosTotal.toFixed(2)),
+        margem: Number(margem.toFixed(2)),
+        margemPct: Number(margemPct.toFixed(1)),
+        kmRodados,
+        mediaKmL: mediaKmL ? Number(mediaKmL.toFixed(2)) : null,
+        viagens: {
+          total: trips.length,
+          completed: completedTrips.length,
+          active: trips.filter(t => t.status === 'active').length,
+          draft: trips.filter(t => t.status === 'draft').length,
+          cancelled: trips.filter(t => t.status === 'cancelled').length,
+        },
+      },
       tripsPerDay: Object.entries(dayMap).map(([date, count]) => ({ date: date.slice(5), count })),
+      revenueVsCosts: Object.entries(revenueMap).map(([label, v]) => ({
+        label,
+        faturamento: Number(v.faturamento.toFixed(2)),
+        custos: Number(v.custos.toFixed(2)),
+      })),
       costsByCategory: Object.entries(costsByCategory)
         .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
         .sort((a, b) => b.value - a.value),
-      kmByDriver: Object.values(kmByDriver)
-        .sort((a, b) => b.km - a.km)
-        .slice(0, 5),
-      fuelTrend: Object.entries(weekMap).map(([week, { sum, count }]) => ({
-        week,
-        kmPerLiter: Number((sum / count).toFixed(2)),
-      })),
+      kmByDriver: Object.values(kmByDriver).sort((a, b) => b.km - a.km).slice(0, 5),
+      alerts: { cnhExpirando, viagensLongas },
     }
   })
 
