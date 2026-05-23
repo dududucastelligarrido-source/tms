@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTrip } from '../../hooks/useTrips.js'
 import { api } from '../../lib/api.js'
 import { useQueryClient } from '@tanstack/react-query'
+import FreightCalculator from '../../components/FreightCalculator.js'
 
 export default function TripDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -67,6 +68,8 @@ export default function TripDetailPage() {
             </div>
           </div>
         )}
+
+        <FreightCalculator currentCartaFrete={t.cartaFrete ? Number(t.cartaFrete) : undefined} />
 
         {t.costs?.length > 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">

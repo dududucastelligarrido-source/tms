@@ -4,6 +4,7 @@ import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps'
 import { useCreateTrip } from '../../hooks/useTrips.js'
 import { useVehicles } from '../../hooks/useVehicles.js'
 import { useDrivers } from '../../hooks/useDrivers.js'
+import FreightCalculator from '../../components/FreightCalculator.js'
 
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY as string
 
@@ -140,6 +141,11 @@ export default function NewTripPage() {
               />
             </div>
           </div>
+
+          <FreightCalculator
+            currentCartaFrete={form.cartaFrete ? Number(form.cartaFrete) : undefined}
+            onUse={value => setForm(f => ({ ...f, cartaFrete: value.toFixed(2) }))}
+          />
 
           <button type="submit" disabled={createTrip.isPending}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg py-3 transition-colors"
