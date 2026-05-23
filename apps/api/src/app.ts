@@ -21,8 +21,9 @@ export async function createApp(opts: { logger?: boolean } = {}): Promise<Fastif
   const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(',').map(o => o.trim())
   await app.register(cors, {
     origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) return cb(null, true)
-      cb(null, false)
+      if (!origin) return cb(null, true)
+      const allowed = allowedOrigins.includes(origin) || /^https:\/\/[\w-]+\.vercel\.app$/.test(origin)
+      cb(null, allowed)
     },
     credentials: true,
     preflight: true,
