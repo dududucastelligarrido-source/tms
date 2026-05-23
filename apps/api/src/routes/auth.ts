@@ -1,7 +1,8 @@
 import { SignJWT, jwtVerify } from 'jose'
-import { hash, verify } from '@node-rs/argon2'
+import { verify } from '@node-rs/argon2'
 import { z, ZodError } from 'zod'
 import type { FastifyPluginAsync } from 'fastify'
+import rateLimit from '@fastify/rate-limit'
 import { prisma } from '../plugins/prisma.js'
 
 if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET env var is required')
@@ -21,6 +22,13 @@ async function signToken(payload: object, secret: Uint8Array, expiresIn: string)
 const LoginSchema = z.object({ email: z.string().email(), password: z.string().min(6) })
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
+  await fastify.register(rateLimit, {
+    max: 10,
+    timeWindow: '15 minutes',
+    keyGenerator: (req) => req.ip,
+    errorResponseBuilder: () => ({ error: 'Muitas tentativas. Tente novamente em 15 minutos.' }),
+  })
+
   fastify.post('/auth/login', async (request, reply) => {
     let body: z.infer<typeof LoginSchema>
     try {

@@ -13,7 +13,10 @@ const EMPTY_FORM = {
 export default function FuelPage() {
   const user = getUser()
   const isAdmin = user?.role === 'admin'
-  const { data: logs = [], isLoading } = useFuelLogs()
+  const [page, setPage] = useState(1)
+  const { data: logsResult, isLoading } = useFuelLogs({ page, limit: 50 })
+  const logs = logsResult?.data ?? []
+  const logsPages = logsResult?.pages ?? 1
   const { data: vehicles = [] } = useVehicles()
   const { data: drivers = [] } = useDrivers()
   const createLog = useCreateFuelLog()
@@ -153,6 +156,7 @@ export default function FuelPage() {
       ) : (logs as any[]).length === 0 ? (
         <p className="text-slate-500 text-sm">Nenhum abastecimento registrado.</p>
       ) : (
+        <>
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -195,6 +199,22 @@ export default function FuelPage() {
             </tbody>
           </table>
         </div>
+        {logsPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
+            <span className="text-slate-500 text-xs">Página {page} de {logsPages}</span>
+            <div className="flex gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-lg">
+                ← Anterior
+              </button>
+              <button onClick={() => setPage(p => Math.min(logsPages, p + 1))} disabled={page === logsPages}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-lg">
+                Próxima →
+              </button>
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   )

@@ -18,8 +18,9 @@ export const vehicleRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
   fastify.addHook('preHandler', tenantScope)
 
-  fastify.get('/vehicles', async () => {
-    return prisma.vehicle.findMany({ where: { isActive: true }, orderBy: { plate: 'asc' } })
+  fastify.get('/vehicles', async (request) => {
+    const { limit } = z.object({ limit: z.coerce.number().int().min(1).max(500).default(100) }).parse(request.query)
+    return prisma.vehicle.findMany({ where: { tenantId: (request as any).tenantId, isActive: true }, orderBy: { plate: 'asc' }, take: limit })
   })
 
   fastify.get('/vehicles/:id', async (request, reply) => {

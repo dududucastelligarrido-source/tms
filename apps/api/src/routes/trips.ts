@@ -36,9 +36,11 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
       status: z.string().optional(),
       driverId: z.string().uuid().optional(),
       vehicleId: z.string().uuid().optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
     }).parse(request.query)
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { tenantId: (request as any).tenantId }
     if (query.status) where.status = query.status
     if (query.driverId) where.driverId = query.driverId
     if (query.vehicleId) where.vehicleId = query.vehicleId
@@ -48,11 +50,19 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
       if (driver) where.driverId = driver.id
     }
 
-    return prisma.trip.findMany({
-      where,
-      include: { driver: true, vehicle: true },
-      orderBy: { createdAt: 'desc' },
-    })
+    const skip = (query.page - 1) * query.limit
+    const [data, total] = await Promise.all([
+      prisma.trip.findMany({
+        where,
+        include: { driver: true, vehicle: true },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: query.limit,
+      }),
+      prisma.trip.count({ where }),
+    ])
+
+    return { data, total, page: query.page, pages: Math.ceil(total / query.limit) }
   })
 
   fastify.get('/trips/:id', async (request, reply) => {

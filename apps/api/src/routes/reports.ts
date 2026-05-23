@@ -19,7 +19,11 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
     start.setDate(start.getDate() - (period - 1))
     start.setHours(0, 0, 0, 0)
 
-    const [trips, costs, kmLogs, fuelLogs, allDrivers, activeTrips, allVehicles] = await Promise.all([
+    // Período anterior para comparativo
+    const prevEnd = new Date(start); prevEnd.setDate(prevEnd.getDate() - 1); prevEnd.setHours(23, 59, 59, 999)
+    const prevStart = new Date(prevEnd); prevStart.setDate(prevStart.getDate() - (period - 1)); prevStart.setHours(0, 0, 0, 0)
+
+    const [trips, costs, kmLogs, fuelLogs, allDrivers, activeTripsRaw, allVehicles, prevTrips, prevCosts, prevFuel] = await Promise.all([
       prisma.trip.findMany({
         where: { tenantId, createdAt: { gte: start } },
         include: { driver: true },
@@ -30,14 +34,24 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         where: { tenantId, eventType: 'end', loggedAt: { gte: start } },
         include: { driver: true, vehicle: true },
       }),
-      prisma.fuelLog.findMany({
-        where: { tenantId, loggedAt: { gte: start } },
-        orderBy: { loggedAt: 'asc' },
-      }),
+      prisma.fuelLog.findMany({ where: { tenantId, loggedAt: { gte: start } }, orderBy: { loggedAt: 'asc' } }),
       prisma.driver.findMany({ where: { tenantId, isActive: true } }),
-      prisma.trip.findMany({ where: { tenantId, status: 'active' } }),
+      prisma.trip.findMany({ where: { tenantId, status: 'active' }, include: { driver: true, vehicle: true } }),
       prisma.vehicle.findMany({ where: { tenantId, isActive: true }, include: { maintenances: { orderBy: { performedAt: 'desc' }, take: 1 } } }),
+      // período anterior
+      prisma.trip.findMany({ where: { tenantId, createdAt: { gte: prevStart, lte: prevEnd }, status: 'completed' } }),
+      prisma.tripCost.findMany({ where: { trip: { tenantId }, paidAt: { gte: prevStart, lte: prevEnd } } }),
+      prisma.fuelLog.findMany({ where: { tenantId, loggedAt: { gte: prevStart, lte: prevEnd } } }),
     ])
+
+    const activeTrips = activeTripsRaw
+
+    // ── Comparativo período anterior ──────────────────────────────────────
+    const prevFaturamento = prevTrips.reduce((s, t) => s + Number((t as any).cartaFrete ?? 0), 0)
+    const prevCustosTotal = prevCosts.reduce((s, c) => s + Number(c.amount), 0) + prevFuel.reduce((s, f) => s + Number(f.totalAmount), 0)
+    const prevKm = prevTrips.reduce((s, t) => s + (t.kmEnd != null ? t.kmEnd - t.kmStart : 0), 0)
+    const prevMargem = prevFaturamento - prevCustosTotal
+    function pct(cur: number, prev: number) { return prev === 0 ? null : Number(((cur - prev) / prev * 100).toFixed(1)) }
 
     // ── KPIs financeiros ──────────────────────────────────────────────────
     const completedTrips = trips.filter(t => t.status === 'completed')
@@ -98,6 +112,50 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       if (!kmByDriver[log.driverId]) kmByDriver[log.driverId] = { name: (log.driver as any).name, km: 0 }
       kmByDriver[log.driverId].km += km
     }
+
+    // ── Ranking de motoristas ─────────────────────────────────────────────
+    const driverRankMap: Record<string, { name: string; km: number; viagens: number; faturamento: number }> = {}
+    for (const t of completedTrips) {
+      const d = t.driver as any
+      if (!d) continue
+      if (!driverRankMap[t.driverId!]) driverRankMap[t.driverId!] = { name: d.name, km: 0, viagens: 0, faturamento: 0 }
+      driverRankMap[t.driverId!].viagens++
+      driverRankMap[t.driverId!].faturamento += Number((t as any).cartaFrete ?? 0)
+      if (t.kmEnd != null) driverRankMap[t.driverId!].km += t.kmEnd - t.kmStart
+    }
+    const driverRanking = Object.values(driverRankMap)
+      .sort((a, b) => b.faturamento - a.faturamento)
+      .slice(0, 5)
+      .map(d => ({ ...d, faturamento: Number(d.faturamento.toFixed(2)) }))
+
+    // ── Resumo de frota ───────────────────────────────────────────────────
+    const vehicleIdsAtiva = new Set(activeTrips.map(t => t.vehicleId).filter(Boolean))
+    const vehicleIdsAlerta = new Set(
+      allVehicles.filter(v => {
+        const last = (v as any).maintenances[0]
+        if (!last) return false
+        return (last.nextServiceKm && v.currentKm >= last.nextServiceKm - 5000) ||
+               (last.nextServiceDate && new Date(last.nextServiceDate) <= in30days)
+      }).map(v => v.id)
+    )
+    const fleetSummary = {
+      total: allVehicles.length,
+      emViagem: vehicleIdsAtiva.size,
+      ociosos: allVehicles.length - vehicleIdsAtiva.size,
+      manutencaoPendente: vehicleIdsAlerta.size,
+    }
+
+    // ── Viagens ativas em destaque ────────────────────────────────────────
+    const activeTripsDetail = activeTrips.map(t => ({
+      id: t.id,
+      origin: t.originAddress,
+      destination: t.destinationAddress,
+      driver: (t.driver as any)?.name ?? null,
+      vehicle: (t.vehicle as any)?.plate ?? null,
+      startedAt: t.startedAt,
+      hoursActive: t.startedAt ? Math.floor((Date.now() - t.startedAt.getTime()) / 3600000) : null,
+      cartaFrete: t.cartaFrete ? Number(t.cartaFrete) : null,
+    }))
 
     // ── Média KM/L da frota ───────────────────────────────────────────────
     const dieselLogs = fuelLogs.filter(f => f.fuelType === 'diesel' && f.kmPerLiter)
@@ -167,6 +225,12 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
           cancelled: trips.filter(t => t.status === 'cancelled').length,
         },
       },
+      trends: {
+        faturamento: pct(faturamento, prevFaturamento),
+        custosTotal: pct(custosTotal, prevCustosTotal),
+        margem: pct(margem, prevMargem),
+        kmRodados: pct(kmRodados, prevKm),
+      },
       tripsPerDay: Object.entries(dayMap).map(([date, count]) => ({ date: date.slice(5), count })),
       revenueVsCosts: Object.entries(revenueMap).map(([label, v]) => ({
         label,
@@ -177,6 +241,9 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
         .sort((a, b) => b.value - a.value),
       kmByDriver: Object.values(kmByDriver).sort((a, b) => b.km - a.km).slice(0, 5),
+      driverRanking,
+      fleetSummary,
+      activeTripsDetail,
       alerts: { cnhExpirando, viagensLongas, manutencaoPendente },
     }
   })

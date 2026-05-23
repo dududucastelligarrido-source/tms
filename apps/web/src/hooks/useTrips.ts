@@ -1,13 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.js'
 
-export function useTrips(filters?: { status?: string; driverId?: string }) {
+interface TripPage {
+  data: any[]
+  total: number
+  page: number
+  pages: number
+}
+
+export function useTrips(filters?: { status?: string; driverId?: string; page?: number; limit?: number }) {
   const params = new URLSearchParams(
-    Object.fromEntries(Object.entries(filters ?? {}).filter(([, v]) => v)) as Record<string, string>
+    Object.fromEntries(
+      Object.entries({ ...filters, limit: filters?.limit ?? 50 }).filter(([, v]) => v != null)
+    ) as Record<string, string>
   ).toString()
   return useQuery({
     queryKey: ['trips', filters],
-    queryFn: () => api.get<any[]>(`/trips${params ? `?${params}` : ''}`),
+    queryFn: () => api.get<TripPage>(`/trips${params ? `?${params}` : ''}`),
   })
 }
 

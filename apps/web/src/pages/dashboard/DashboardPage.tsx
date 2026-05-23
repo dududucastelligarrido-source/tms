@@ -31,11 +31,26 @@ function fmt(n: number) {
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function KpiCard({ label, value, sub, color, small }: { label: string; value: string; sub?: string; color: string; small?: boolean }) {
+function TrendBadge({ pct }: { pct: number | null }) {
+  if (pct === null) return null
+  const up = pct >= 0
+  return (
+    <span className={`text-xs font-medium ml-1 ${up ? 'text-green-400' : 'text-red-400'}`}>
+      {up ? '▲' : '▼'} {Math.abs(pct)}%
+    </span>
+  )
+}
+
+function KpiCard({ label, value, sub, color, small, trend }: {
+  label: string; value: string; sub?: string; color: string; small?: boolean; trend?: number | null
+}) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
       <div className="text-slate-400 text-xs uppercase tracking-wider mb-1">{label}</div>
-      <div className={`font-bold ${small ? 'text-xl' : 'text-2xl'} ${color}`}>{value}</div>
+      <div className={`font-bold ${small ? 'text-xl' : 'text-2xl'} ${color} flex items-baseline flex-wrap gap-1`}>
+        {value}
+        {trend !== undefined && <TrendBadge pct={trend ?? null} />}
+      </div>
       {sub && <div className="text-slate-500 text-xs mt-0.5">{sub}</div>}
     </div>
   )
@@ -56,7 +71,8 @@ export default function DashboardPage() {
   const isAdmin = user?.role === 'admin'
   const [period, setPeriod] = useState('30')
 
-  const { data: allTrips = [] } = useTrips()
+  const { data: tripsResult } = useTrips({ limit: 6 })
+  const allTrips = tripsResult?.data ?? []
   const { data: dash, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard', period],
     queryFn: () => api.get<any>(`/reports/dashboard?period=${period}`),
@@ -64,6 +80,7 @@ export default function DashboardPage() {
   })
 
   const kpis = dash?.kpis
+  const trends = dash?.trends
   const alerts = dash?.alerts
   const totalAlerts = (alerts?.cnhExpirando?.length ?? 0) + (alerts?.viagensLongas?.length ?? 0) + (alerts?.manutencaoPendente?.length ?? 0)
 
@@ -132,16 +149,16 @@ export default function DashboardPage() {
           <div>
             <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Financeiro — últimos {period} dias</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <KpiCard label="Faturamento" value={`R$ ${fmt(kpis.faturamento)}`} color="text-green-400" />
+              <KpiCard label="Faturamento" value={`R$ ${fmt(kpis.faturamento)}`} color="text-green-400" trend={trends?.faturamento} />
               <KpiCard label="Custos Totais" value={`R$ ${fmt(kpis.custosTotal)}`}
                 sub={`Diretos R$ ${fmt(kpis.custosDiretos)} · Combustível R$ ${fmt(kpis.custosCombustivel)}`}
-                color="text-red-400" small />
+                color="text-red-400" small trend={trends?.custosTotal} />
               <KpiCard label="Margem Bruta" value={`R$ ${fmt(kpis.margem)}`}
                 sub={`${kpis.margemPct.toFixed(1)}% do faturamento`}
-                color={kpis.margem >= 0 ? 'text-blue-400' : 'text-red-400'} small />
+                color={kpis.margem >= 0 ? 'text-blue-400' : 'text-red-400'} small trend={trends?.margem} />
               <KpiCard label="KM Rodados" value={kpis.kmRodados.toLocaleString('pt-BR')}
                 sub={kpis.mediaKmL ? `Média ${kpis.mediaKmL} km/L` : undefined}
-                color="text-amber-400" />
+                color="text-amber-400" trend={trends?.kmRodados} />
             </div>
           </div>
 
@@ -163,6 +180,71 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="text-slate-500 text-sm">Carregando métricas...</div>
+      )}
+
+      {/* Resumo de Frota + Viagens Ativas */}
+      {isAdmin && dash && !dashLoading && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* Resumo de Frota */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Resumo da Frota</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-800 rounded-lg p-3">
+                <div className="text-2xl font-bold text-slate-100">{dash.fleetSummary.total}</div>
+                <div className="text-xs text-slate-400 mt-0.5">Veículos ativos</div>
+              </div>
+              <div className="bg-green-950/50 border border-green-900/50 rounded-lg p-3">
+                <div className="text-2xl font-bold text-green-400">{dash.fleetSummary.emViagem}</div>
+                <div className="text-xs text-slate-400 mt-0.5">Em viagem</div>
+              </div>
+              <div className="bg-slate-800 rounded-lg p-3">
+                <div className="text-2xl font-bold text-slate-400">{dash.fleetSummary.ociosos}</div>
+                <div className="text-xs text-slate-400 mt-0.5">Ociosos</div>
+              </div>
+              <div className={`rounded-lg p-3 ${dash.fleetSummary.manutencaoPendente > 0 ? 'bg-amber-950/50 border border-amber-900/50' : 'bg-slate-800'}`}>
+                <div className={`text-2xl font-bold ${dash.fleetSummary.manutencaoPendente > 0 ? 'text-amber-400' : 'text-slate-400'}`}>{dash.fleetSummary.manutencaoPendente}</div>
+                <div className="text-xs text-slate-400 mt-0.5">Manutenção pendente</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Viagens Ativas em Destaque */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+              Viagens em Curso
+              <span className="ml-2 bg-green-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{dash.activeTripsDetail.length}</span>
+            </h2>
+            {dash.activeTripsDetail.length === 0 ? (
+              <p className="text-slate-500 text-sm text-center py-6">Nenhuma viagem ativa no momento.</p>
+            ) : (
+              <div className="space-y-2">
+                {dash.activeTripsDetail.slice(0, 4).map((t: any) => (
+                  <Link key={t.id} to={`/trips/${t.id}/active`}
+                    className="flex items-center justify-between p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-slate-100 text-sm font-medium truncate">{t.origin} → {t.destination}</div>
+                      <div className="text-slate-400 text-xs mt-0.5">{t.driver} · {t.vehicle}</div>
+                    </div>
+                    <div className="ml-3 shrink-0 text-right">
+                      {t.hoursActive !== null && (
+                        <div className={`text-xs font-semibold ${t.hoursActive >= 48 ? 'text-amber-400' : 'text-green-400'}`}>
+                          {t.hoursActive}h
+                        </div>
+                      )}
+                      {t.cartaFrete && <div className="text-xs text-slate-400">R$ {fmt(t.cartaFrete)}</div>}
+                    </div>
+                  </Link>
+                ))}
+                {dash.activeTripsDetail.length > 4 && (
+                  <Link to="/trips" className="block text-center text-xs text-blue-400 hover:underline pt-1">
+                    +{dash.activeTripsDetail.length - 4} viagens →
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Gráficos */}
@@ -238,6 +320,37 @@ export default function DashboardPage() {
             )}
           </ChartCard>
 
+        </div>
+      )}
+
+      {/* Ranking de Motoristas */}
+      {isAdmin && dash?.driverRanking?.length > 0 && (
+        <div>
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Ranking de Motoristas — últimos {period} dias</h2>
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800">
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">#</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Motorista</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Viagens</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">KM</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase">Faturamento</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dash.driverRanking.map((d: any, i: number) => (
+                  <tr key={d.name} className="border-b border-slate-800 last:border-0">
+                    <td className="px-4 py-3 text-slate-500 font-mono text-xs">{i + 1}º</td>
+                    <td className="px-4 py-3 text-slate-100 font-medium">{d.name}</td>
+                    <td className="px-4 py-3 text-right text-slate-300">{d.viagens}</td>
+                    <td className="px-4 py-3 text-right text-slate-300">{d.km.toLocaleString('pt-BR')} km</td>
+                    <td className="px-4 py-3 text-right text-green-400 font-medium">R$ {fmt(d.faturamento)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

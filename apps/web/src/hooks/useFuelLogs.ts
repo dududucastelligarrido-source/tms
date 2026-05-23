@@ -1,11 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.js'
 
-export function useFuelLogs(filters: Record<string, string> = {}) {
-  const params = new URLSearchParams(filters).toString()
+interface FuelLogPage { data: any[]; total: number; page: number; pages: number }
+
+export function useFuelLogs(filters: Record<string, string | number | undefined> = {}) {
+  const merged = { limit: 50, ...filters }
+  const params = new URLSearchParams(
+    Object.fromEntries(Object.entries(merged).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))
+  ).toString()
   return useQuery({
     queryKey: ['fuel-logs', filters],
-    queryFn: () => api.get<any[]>(`/fuel-logs${params ? `?${params}` : ''}`),
+    queryFn: () => api.get<FuelLogPage>(`/fuel-logs${params ? `?${params}` : ''}`),
   })
 }
 

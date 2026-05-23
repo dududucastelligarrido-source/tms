@@ -18,7 +18,14 @@ import { maintenanceRoutes } from './routes/maintenance.js'
 export async function createApp(opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: opts.logger ?? true })
 
-  await app.register(cors, { origin: true })
+  const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(',').map(o => o.trim())
+  await app.register(cors, {
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true)
+      cb(new Error('Not allowed by CORS'), false)
+    },
+    credentials: true,
+  })
   await app.register(prismaPlugin)
   await app.register(swaggerPlugin)
 

@@ -18,8 +18,9 @@ export const driverRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
   fastify.addHook('preHandler', tenantScope)
 
-  fastify.get('/drivers', async () => {
-    return prisma.driver.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } })
+  fastify.get('/drivers', async (request) => {
+    const { limit } = z.object({ limit: z.coerce.number().int().min(1).max(500).default(100) }).parse(request.query)
+    return prisma.driver.findMany({ where: { tenantId: (request as any).tenantId, isActive: true }, orderBy: { name: 'asc' }, take: limit })
   })
 
   fastify.get('/drivers/:id', async (request, reply) => {

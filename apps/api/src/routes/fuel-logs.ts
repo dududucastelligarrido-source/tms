@@ -27,6 +27,8 @@ export const fuelLogRoutes: FastifyPluginAsync = async (fastify) => {
       driverId: z.string().uuid().optional(),
       startDate: z.string().optional(),
       endDate: z.string().optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
     }).parse(request.query)
 
     const where: Record<string, unknown> = { tenantId: (request as any).tenantId }
@@ -39,11 +41,19 @@ export const fuelLogRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
 
-    return prisma.fuelLog.findMany({
-      where,
-      include: { vehicle: true, driver: true },
-      orderBy: { loggedAt: 'desc' },
-    })
+    const skip = (query.page - 1) * query.limit
+    const [data, total] = await Promise.all([
+      prisma.fuelLog.findMany({
+        where,
+        include: { vehicle: true, driver: true },
+        orderBy: { loggedAt: 'desc' },
+        skip,
+        take: query.limit,
+      }),
+      prisma.fuelLog.count({ where }),
+    ])
+
+    return { data, total, page: query.page, pages: Math.ceil(total / query.limit) }
   })
 
   fastify.post('/fuel-logs', async (request, reply) => {
