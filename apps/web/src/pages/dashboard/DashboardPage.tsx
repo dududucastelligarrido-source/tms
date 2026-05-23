@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line,
+  PieChart, Pie, Cell, LineChart, Line, LabelList,
 } from 'recharts'
 import { AlertOctagon, AlertTriangle, Truck, Wrench } from 'lucide-react'
 import { semantic } from '../../lib/theme.js'
@@ -230,12 +230,18 @@ export default function DashboardPage() {
           </div>
 
           <div>
-            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Viagens — últimos {period} dias</h2>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Viagens — últimos {period} dias</h2>
+              {kpis.viagens.draft > 0 && (
+                <Link to="/trips?status=draft" className="text-blue-400 text-xs hover:underline">
+                  Ver rascunhos ({kpis.viagens.draft}) →
+                </Link>
+              )}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <KpiCard label="Total" value={String(kpis.viagens.total)} color="text-slate-200" />
               <KpiCard label="Concluídas" value={String(kpis.viagens.completed)} color={semantic.positive} />
               <KpiCard label="Em Curso" value={String(kpis.viagens.active)} color={semantic.neutral} />
-              <KpiCard label="Rascunhos" value={String(kpis.viagens.draft)} color={semantic.neutral} />
               <KpiCard label="Canceladas" value={String(kpis.viagens.cancelled)} color={semantic.negative} />
             </div>
           </div>
@@ -250,8 +256,8 @@ export default function DashboardPage() {
       )}
 
       {/* Resumo de Frota + Viagens Ativas */}
-      {isAdmin && dash && !dashLoading && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {isAdmin && dash && !dashLoading && (fleetSummary || activeTripsDetail.length > 0) && (
+        <div className={`grid grid-cols-1 gap-6 ${activeTripsDetail.length > 0 ? 'lg:grid-cols-2' : ''}`}>
 
           {/* Resumo de Frota */}
           {fleetSummary && (
@@ -278,41 +284,39 @@ export default function DashboardPage() {
           </div>
           )}
 
-          {/* Viagens Ativas em Destaque */}
+          {/* Viagens Ativas em Destaque — oculto quando não há viagens ativas */}
+          {activeTripsDetail.length > 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
             <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
               Viagens em Curso
               <span className="ml-2 bg-green-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{activeTripsDetail.length}</span>
             </h2>
-            {activeTripsDetail.length === 0 ? (
-              <p className="text-slate-500 text-sm text-center py-6">Nenhuma viagem ativa no momento.</p>
-            ) : (
-              <div className="space-y-2">
-                {activeTripsDetail.slice(0, 4).map((t: any) => (
-                  <Link key={t.id} to={`/trips/${t.id}/active`}
-                    className="flex items-center justify-between p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-slate-100 text-sm font-medium truncate">{t.origin} → {t.destination}</div>
-                      <div className="text-slate-400 text-xs mt-0.5">{t.driver} · {t.vehicle}</div>
-                    </div>
-                    <div className="ml-3 shrink-0 text-right">
-                      {t.hoursActive !== null && (
-                        <div className={`text-xs font-semibold ${t.hoursActive >= 48 ? 'text-amber-400' : 'text-green-400'}`}>
-                          {t.hoursActive}h
-                        </div>
-                      )}
-                      {t.cartaFrete && <div className="text-xs text-slate-400">R$ {fmt(t.cartaFrete)}</div>}
-                    </div>
-                  </Link>
-                ))}
-                {activeTripsDetail.length > 4 && (
-                  <Link to="/trips" className="block text-center text-xs text-blue-400 hover:underline pt-1">
-                    +{activeTripsDetail.length - 4} viagens →
-                  </Link>
-                )}
-              </div>
-            )}
+            <div className="space-y-2">
+              {activeTripsDetail.slice(0, 4).map((t: any) => (
+                <Link key={t.id} to={`/trips/${t.id}/active`}
+                  className="flex items-center justify-between p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-slate-100 text-sm font-medium truncate">{t.origin} → {t.destination}</div>
+                    <div className="text-slate-400 text-xs mt-0.5">{t.driver} · {t.vehicle}</div>
+                  </div>
+                  <div className="ml-3 shrink-0 text-right">
+                    {t.hoursActive !== null && (
+                      <div className={`text-xs font-semibold ${t.hoursActive >= 48 ? 'text-amber-400' : 'text-green-400'}`}>
+                        {t.hoursActive}h
+                      </div>
+                    )}
+                    {t.cartaFrete && <div className="text-xs text-slate-400">R$ {fmt(t.cartaFrete)}</div>}
+                  </div>
+                </Link>
+              ))}
+              {activeTripsDetail.length > 4 && (
+                <Link to="/trips" className="block text-center text-xs text-blue-400 hover:underline pt-1">
+                  +{activeTripsDetail.length - 4} viagens →
+                </Link>
+              )}
+            </div>
           </div>
+          )}
         </div>
       )}
 
@@ -402,15 +406,24 @@ export default function DashboardPage() {
             {kmByDriver.length === 0 ? (
               <p className="text-slate-500 text-sm text-center py-8">Sem dados de KM no período.</p>
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={kmByDriver} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
-                  <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} />
-                  <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} width={110} />
-                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-                    formatter={(v: any) => `${v.toLocaleString('pt-BR')} km`} itemStyle={{ color: '#34d399' }} />
-                  <Bar dataKey="km" name="KM" fill="#22c55e" radius={[0, 3, 3, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={kmByDriver} layout="vertical" margin={{ top: 0, right: 80, left: 8, bottom: 0 }}>
+                    <XAxis type="number" hide />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} width={110} />
+                    <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
+                      formatter={(v: any) => `${Number(v).toLocaleString('pt-BR')} km`} itemStyle={{ color: '#34d399' }} />
+                    <Bar dataKey="km" name="KM" fill="#22c55e" radius={[0, 3, 3, 0]}>
+                      <LabelList dataKey="km" position="right"
+                        formatter={(v: number) => `${Number(v).toLocaleString('pt-BR')} km`}
+                        style={{ fill: '#94a3b8', fontSize: 11 }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="mt-2 text-center">
+                  <Link to="/drivers" className="text-xs text-blue-400 hover:underline">Ver todos os motoristas →</Link>
+                </div>
+              </>
             )}
           </ChartCard>
 
