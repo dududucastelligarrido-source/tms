@@ -12,6 +12,12 @@ COPY apps/api/ ./apps/api/
 RUN pnpm install --frozen-lockfile
 
 WORKDIR /app/apps/api
+
+# Placeholders so prisma generate can validate schema at build time;
+# real values come from Render environment variables at runtime.
+ENV DATABASE_URL="postgresql://p:p@localhost/p"
+ENV DIRECT_URL="postgresql://p:p@localhost/p"
+
 RUN pnpm db:generate && pnpm build
 
 EXPOSE 3001
