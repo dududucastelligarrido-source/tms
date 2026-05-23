@@ -7,6 +7,8 @@ import TripDetailPage from './pages/trips/TripDetailPage.js'
 import NewTripPage from './pages/trips/NewTripPage.js'
 import ActiveTripPage from './pages/trips/ActiveTripPage.js'
 import ChecklistPage from './pages/checklists/ChecklistPage.js'
+import VehiclesPage from './pages/vehicles/VehiclesPage.js'
+import DriversPage from './pages/drivers/DriversPage.js'
 import Layout from './components/Layout.js'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -26,6 +28,8 @@ export default function App() {
         <Route path="trips/:id" element={<TripDetailPage />} />
         <Route path="trips/:id/active" element={<ActiveTripPage />} />
         <Route path="trips/:tripId/checklists/:checklistId" element={<ChecklistPage />} />
+        <Route path="vehicles" element={<VehiclesPage />} />
+        <Route path="drivers" element={<DriversPage />} />
       </Route>
     </Routes>
   )

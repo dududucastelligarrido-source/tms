@@ -4,6 +4,8 @@ import { clearTokens, getUser } from '../lib/auth.js'
 const navItems = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/trips', label: 'Viagens' },
+  { to: '/vehicles', label: 'Veículos' },
+  { to: '/drivers', label: 'Motoristas' },
 ]
 
 export default function Layout() {
