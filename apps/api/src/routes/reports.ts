@@ -113,6 +113,8 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       kmByDriver[log.driverId].km += km
     }
 
+    const in30days = new Date(); in30days.setDate(in30days.getDate() + 30)
+
     // ── Ranking de motoristas ─────────────────────────────────────────────
     const driverRankMap: Record<string, { name: string; km: number; viagens: number; faturamento: number }> = {}
     for (const t of completedTrips) {
@@ -164,7 +166,6 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       : null
 
     // ── Alertas ───────────────────────────────────────────────────────────
-    const in30days = new Date(); in30days.setDate(in30days.getDate() + 30)
     const cnhExpirando = allDrivers
       .filter(d => d.cnhExpiresAt <= in30days)
       .map(d => ({
