@@ -78,6 +78,8 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
     const margem = faturamento - custosTotal
     const margemPct = faturamento > 0 ? (margem / faturamento) * 100 : 0
     const kmRodados = completedTrips.reduce((s, t) => s + (t.kmEnd != null ? t.kmEnd - t.kmStart : 0), 0)
+    const custoPorKm = kmRodados > 0 ? custosTotal / kmRodados : 0
+    const ticketMedio = completedTrips.length > 0 ? faturamento / completedTrips.length : 0
 
     // ── Viagens por dia ───────────────────────────────────────────────────
     const dayMap: Record<string, number> = {}
@@ -253,6 +255,18 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         hoursActive: Math.floor((now - t.startedAt!.getTime()) / 3600000),
       }))
 
+    // Veículos sem viagem nos últimos 7 dias
+    const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const recentVehicleIds = new Set<string>([
+      ...activeTrips.map(t => t.vehicleId).filter((id): id is string => !!id),
+      ...completedTrips
+        .filter(t => t.completedAt && t.completedAt >= sevenDaysAgo)
+        .map(t => t.vehicleId).filter((id): id is string => !!id),
+    ])
+    const veiculosParados = allVehicles
+      .filter(v => !recentVehicleIds.has(v.id))
+      .map(v => ({ vehicleId: v.id, plate: v.plate, model: `${v.brand} ${v.model}`.trim() }))
+
     // Veículos com manutenção vencida ou próxima (5000 km ou 30 dias)
     const manutencaoPendente = allVehicles
       .filter(v => {
@@ -285,6 +299,8 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         margem: Number(margem.toFixed(2)),
         margemPct: Number(margemPct.toFixed(1)),
         kmRodados,
+        custoPorKm: Number(custoPorKm.toFixed(2)),
+        ticketMedio: Number(ticketMedio.toFixed(2)),
         mediaKmL: mediaKmL ? Number(mediaKmL.toFixed(2)) : null,
         viagens: {
           total: trips.length,
@@ -315,7 +331,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       fleetSummary,
       activeTripsDetail,
       dailyTrend,
-      alerts: { cnhExpirando, viagensLongas, manutencaoPendente },
+      alerts: { cnhExpirando, viagensLongas, manutencaoPendente, veiculosParados },
     }
   })
 

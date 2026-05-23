@@ -111,7 +111,7 @@ export default function DashboardPage() {
   const kpis = dash?.kpis
   const trends = dash?.trends
   const alerts = dash?.alerts
-  const totalAlerts = (alerts?.cnhExpirando?.length ?? 0) + (alerts?.viagensLongas?.length ?? 0) + (alerts?.manutencaoPendente?.length ?? 0)
+  const totalAlerts = (alerts?.cnhExpirando?.length ?? 0) + (alerts?.viagensLongas?.length ?? 0) + (alerts?.manutencaoPendente?.length ?? 0) + (alerts?.veiculosParados?.length ?? 0)
   const activeTripsDetail: any[] = dash?.activeTripsDetail ?? []
   const revenueVsCosts: any[] = dash?.revenueVsCosts ?? []
   const tripsPerDay: any[] = dash?.tripsPerDay ?? []
@@ -202,6 +202,17 @@ export default function DashboardPage() {
                 <Link to={`/vehicles/${m.vehicleId}/maintenance`} className="text-amber-400 text-xs hover:underline shrink-0">Ver</Link>
               </div>
             ))}
+            {(alerts.veiculosParados as any[] | undefined)?.map((v: any) => (
+              <div key={v.vehicleId} className="flex items-center justify-between text-sm gap-2">
+                <span className="flex items-center gap-1.5">
+                  <Truck size={14} className="text-slate-500 shrink-0" />
+                  <span className="text-slate-400">
+                    <strong className="text-slate-300">{v.plate}</strong> — parado há mais de 7 dias
+                  </span>
+                </span>
+                <Link to={`/vehicles/${v.vehicleId}`} className="text-slate-400 text-xs hover:underline shrink-0">Ver</Link>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -214,6 +225,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <KpiCard label="Faturamento" value={`R$ ${fmt(kpis.faturamento)}`}
                 color={semantic.positive} trend={trends?.faturamento}
+                sub={kpis.ticketMedio > 0 ? `Ticket médio R$ ${fmt(kpis.ticketMedio)}` : undefined}
                 sparkline={{ data: dailyTrend, dataKey: 'faturamento', color: '#22c55e' }} />
               <KpiCard label="Custos Totais" value={`R$ ${fmt(kpis.custosTotal)}`}
                 sub={`Diretos R$ ${fmt(kpis.custosDiretos)} · Combustível R$ ${fmt(kpis.custosCombustivel)}`}
@@ -224,7 +236,7 @@ export default function DashboardPage() {
                 color={kpis.margem >= 0 ? semantic.neutral : semantic.negative} small trend={trends?.margem}
                 progress={kpis.margemPct} />
               <KpiCard label="KM Rodados" value={kpis.kmRodados.toLocaleString('pt-BR')}
-                sub={kpis.mediaKmL ? `Média ${kpis.mediaKmL} km/L` : undefined}
+                sub={[kpis.mediaKmL ? `Média ${kpis.mediaKmL} km/L` : '', kpis.custoPorKm > 0 ? `R$ ${fmt(kpis.custoPorKm)}/km` : ''].filter(Boolean).join(' · ') || undefined}
                 color={semantic.neutral} trend={trends?.kmRodados} />
             </div>
           </div>
