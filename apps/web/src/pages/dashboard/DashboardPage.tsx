@@ -83,6 +83,13 @@ export default function DashboardPage() {
   const trends = dash?.trends
   const alerts = dash?.alerts
   const totalAlerts = (alerts?.cnhExpirando?.length ?? 0) + (alerts?.viagensLongas?.length ?? 0) + (alerts?.manutencaoPendente?.length ?? 0)
+  const activeTripsDetail: any[] = dash?.activeTripsDetail ?? []
+  const revenueVsCosts: any[] = dash?.revenueVsCosts ?? []
+  const tripsPerDay: any[] = dash?.tripsPerDay ?? []
+  const costsByCategory: any[] = dash?.costsByCategory ?? []
+  const kmByDriver: any[] = dash?.kmByDriver ?? []
+  const driverRanking: any[] = dash?.driverRanking ?? []
+  const fleetSummary = dash?.fleetSummary
 
   return (
     <div className="p-6 space-y-6">
@@ -187,24 +194,24 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* Resumo de Frota */}
-          {dash.fleetSummary && (
+          {fleetSummary && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
             <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Resumo da Frota</h2>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-slate-800 rounded-lg p-3">
-                <div className="text-2xl font-bold text-slate-100">{dash.fleetSummary.total}</div>
+                <div className="text-2xl font-bold text-slate-100">{fleetSummary.total}</div>
                 <div className="text-xs text-slate-400 mt-0.5">Veículos ativos</div>
               </div>
               <div className="bg-green-950/50 border border-green-900/50 rounded-lg p-3">
-                <div className="text-2xl font-bold text-green-400">{dash.fleetSummary.emViagem}</div>
+                <div className="text-2xl font-bold text-green-400">{fleetSummary.emViagem}</div>
                 <div className="text-xs text-slate-400 mt-0.5">Em viagem</div>
               </div>
               <div className="bg-slate-800 rounded-lg p-3">
-                <div className="text-2xl font-bold text-slate-400">{dash.fleetSummary.ociosos}</div>
+                <div className="text-2xl font-bold text-slate-400">{fleetSummary.ociosos}</div>
                 <div className="text-xs text-slate-400 mt-0.5">Ociosos</div>
               </div>
-              <div className={`rounded-lg p-3 ${dash.fleetSummary.manutencaoPendente > 0 ? 'bg-amber-950/50 border border-amber-900/50' : 'bg-slate-800'}`}>
-                <div className={`text-2xl font-bold ${dash.fleetSummary.manutencaoPendente > 0 ? 'text-amber-400' : 'text-slate-400'}`}>{dash.fleetSummary.manutencaoPendente}</div>
+              <div className={`rounded-lg p-3 ${fleetSummary.manutencaoPendente > 0 ? 'bg-amber-950/50 border border-amber-900/50' : 'bg-slate-800'}`}>
+                <div className={`text-2xl font-bold ${fleetSummary.manutencaoPendente > 0 ? 'text-amber-400' : 'text-slate-400'}`}>{fleetSummary.manutencaoPendente}</div>
                 <div className="text-xs text-slate-400 mt-0.5">Manutenção pendente</div>
               </div>
             </div>
@@ -215,13 +222,13 @@ export default function DashboardPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
             <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
               Viagens em Curso
-              <span className="ml-2 bg-green-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{dash.activeTripsDetail.length}</span>
+              <span className="ml-2 bg-green-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{activeTripsDetail.length}</span>
             </h2>
-            {dash.activeTripsDetail.length === 0 ? (
+            {activeTripsDetail.length === 0 ? (
               <p className="text-slate-500 text-sm text-center py-6">Nenhuma viagem ativa no momento.</p>
             ) : (
               <div className="space-y-2">
-                {dash.activeTripsDetail.slice(0, 4).map((t: any) => (
+                {activeTripsDetail.slice(0, 4).map((t: any) => (
                   <Link key={t.id} to={`/trips/${t.id}/active`}
                     className="flex items-center justify-between p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
                     <div className="flex-1 min-w-0">
@@ -238,9 +245,9 @@ export default function DashboardPage() {
                     </div>
                   </Link>
                 ))}
-                {dash.activeTripsDetail.length > 4 && (
+                {activeTripsDetail.length > 4 && (
                   <Link to="/trips" className="block text-center text-xs text-blue-400 hover:underline pt-1">
-                    +{dash.activeTripsDetail.length - 4} viagens →
+                    +{activeTripsDetail.length - 4} viagens →
                   </Link>
                 )}
               </div>
@@ -254,11 +261,11 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           <ChartCard title="Faturamento vs Custos">
-            {dash.revenueVsCosts.length === 0 ? (
+            {revenueVsCosts.length === 0 ? (
               <p className="text-slate-500 text-sm text-center py-8">Sem dados no período.</p>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={dash.revenueVsCosts} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
+                <BarChart data={revenueVsCosts} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
                   <XAxis dataKey="label" tick={{ fill: '#64748b', fontSize: 10 }} />
                   <YAxis tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
                   <Tooltip
@@ -275,8 +282,8 @@ export default function DashboardPage() {
 
           <ChartCard title="Viagens por Dia">
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={dash.tripsPerDay} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} interval={Math.floor(dash.tripsPerDay.length / 6)} />
+              <BarChart data={tripsPerDay} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} interval={Math.floor(tripsPerDay.length / 6)} />
                 <YAxis tick={{ fill: '#64748b', fontSize: 10 }} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
@@ -289,15 +296,15 @@ export default function DashboardPage() {
           </ChartCard>
 
           <ChartCard title="Custos por Categoria">
-            {dash.costsByCategory.length === 0 ? (
+            {costsByCategory.length === 0 ? (
               <p className="text-slate-500 text-sm text-center py-8">Sem custos no período.</p>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
-                  <Pie data={dash.costsByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85}
+                  <Pie data={costsByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85}
                     label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                     labelLine={false}>
-                    {dash.costsByCategory.map((_: any, i: number) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    {costsByCategory.map((_: any, i: number) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Pie>
                   <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
                     formatter={(v: any) => `R$ ${fmt(Number(v))}`} itemStyle={{ color: '#94a3b8' }} />
@@ -307,11 +314,11 @@ export default function DashboardPage() {
           </ChartCard>
 
           <ChartCard title="KM por Motorista">
-            {dash.kmByDriver.length === 0 ? (
+            {kmByDriver.length === 0 ? (
               <p className="text-slate-500 text-sm text-center py-8">Sem dados de KM no período.</p>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={dash.kmByDriver} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
+                <BarChart data={kmByDriver} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
                   <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} />
                   <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} width={110} />
                   <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
@@ -341,7 +348,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {dash.driverRanking.map((d: any, i: number) => (
+                {driverRanking.map((d: any, i: number) => (
                   <tr key={d.name} className="border-b border-slate-800 last:border-0">
                     <td className="px-4 py-3 text-slate-500 font-mono text-xs">{i + 1}º</td>
                     <td className="px-4 py-3 text-slate-100 font-medium">{d.name}</td>
