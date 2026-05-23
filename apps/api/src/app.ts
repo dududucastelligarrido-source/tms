@@ -22,7 +22,7 @@ export async function createApp(opts: { logger?: boolean } = {}): Promise<Fastif
   await app.register(cors, {
     origin: (origin, cb) => {
       if (!origin || allowedOrigins.includes(origin)) return cb(null, true)
-      cb(new Error('Not allowed by CORS'), false)
+      cb(null, false)
     },
     credentials: true,
   })

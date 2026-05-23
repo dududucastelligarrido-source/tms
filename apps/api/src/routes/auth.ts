@@ -25,7 +25,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(rateLimit, {
     max: 10,
     timeWindow: '15 minutes',
-    keyGenerator: (req) => req.ip,
+    keyGenerator: (req) => (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ?? req.ip ?? 'unknown',
     errorResponseBuilder: () => ({ error: 'Muitas tentativas. Tente novamente em 15 minutos.' }),
   })
 
