@@ -187,6 +187,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* Resumo de Frota */}
+          {dash.fleetSummary && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
             <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Resumo da Frota</h2>
             <div className="grid grid-cols-2 gap-3">
@@ -208,6 +209,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Viagens Ativas em Destaque */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -324,7 +326,7 @@ export default function DashboardPage() {
       )}
 
       {/* Ranking de Motoristas */}
-      {isAdmin && dash?.driverRanking?.length > 0 && (
+      {isAdmin && (dash?.driverRanking?.length ?? 0) > 0 && (
         <div>
           <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Ranking de Motoristas — últimos {period} dias</h2>
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">

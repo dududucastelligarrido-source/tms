@@ -40,7 +40,7 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
       limit: z.coerce.number().int().min(1).max(200).default(50),
     }).parse(request.query)
 
-    const where: Record<string, unknown> = { tenantId: (request as any).tenantId }
+    const where: Record<string, unknown> = {}
     if (query.status) where.status = query.status
     if (query.driverId) where.driverId = query.driverId
     if (query.vehicleId) where.vehicleId = query.vehicleId
