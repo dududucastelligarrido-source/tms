@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend,
+  PieChart, Pie, Cell, LineChart, Line, CartesianGrid,
 } from 'recharts'
 import { useTrips } from '../../hooks/useTrips.js'
 import { api } from '../../lib/api.js'
@@ -92,7 +92,7 @@ export default function DashboardPage() {
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                     labelLine={false}
                   >
                     {dash.costsByCategory.map((_: any, i: number) => (
