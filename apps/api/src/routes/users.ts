@@ -38,6 +38,30 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(user)
   })
 
+  fastify.patch('/users/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    const UpdateSchema = z.object({
+      name: z.string().min(1).optional(),
+      email: z.string().email().optional(),
+      role: z.enum(['admin', 'motorista']).optional(),
+      password: z.string().min(6).optional(),
+    })
+    let data: z.infer<typeof UpdateSchema>
+    try { data = UpdateSchema.parse(request.body) }
+    catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
+
+    const { password, ...rest } = data
+    const updateData: Record<string, unknown> = { ...rest }
+    if (password) updateData.passwordHash = await hash(password)
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+    })
+    return user
+  })
+
   fastify.delete('/users/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
     if (id === request.user.sub) return reply.status(422).send({ error: 'Cannot deactivate your own account' })
