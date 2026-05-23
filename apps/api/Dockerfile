@@ -5,6 +5,11 @@ RUN npm install -g pnpm
 
 WORKDIR /app
 
+# Placeholders so prisma generate can validate schema at build time;
+# real values come from Render environment variables at runtime.
+ENV DATABASE_URL="postgresql://p:p@localhost/p"
+ENV DIRECT_URL="postgresql://p:p@localhost/p"
+
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
 COPY packages/ ./packages/
 COPY apps/api/ ./apps/api/
@@ -12,11 +17,6 @@ COPY apps/api/ ./apps/api/
 RUN pnpm install --frozen-lockfile
 
 WORKDIR /app/apps/api
-
-# Placeholders so prisma generate can validate schema at build time;
-# real values come from Render environment variables at runtime.
-ENV DATABASE_URL="postgresql://p:p@localhost/p"
-ENV DIRECT_URL="postgresql://p:p@localhost/p"
 
 RUN pnpm db:generate && pnpm build
 
