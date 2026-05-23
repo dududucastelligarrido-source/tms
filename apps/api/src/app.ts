@@ -13,6 +13,7 @@ import { tripChecklistRoutes } from './routes/trip-checklists.js'
 import { userRoutes } from './routes/users.js'
 import { reportRoutes } from './routes/reports.js'
 import { fuelLogRoutes } from './routes/fuel-logs.js'
+import { maintenanceRoutes } from './routes/maintenance.js'
 
 export async function createApp(opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: opts.logger ?? true })
@@ -33,6 +34,7 @@ export async function createApp(opts: { logger?: boolean } = {}): Promise<Fastif
   await app.register(userRoutes, { prefix: '/api/v1' })
   await app.register(reportRoutes, { prefix: '/api/v1' })
   await app.register(fuelLogRoutes, { prefix: '/api/v1' })
+  await app.register(maintenanceRoutes, { prefix: '/api/v1' })
 
   return app
 }

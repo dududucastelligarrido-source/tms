@@ -19,7 +19,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
     start.setDate(start.getDate() - (period - 1))
     start.setHours(0, 0, 0, 0)
 
-    const [trips, costs, kmLogs, fuelLogs, allDrivers, activeTrips] = await Promise.all([
+    const [trips, costs, kmLogs, fuelLogs, allDrivers, activeTrips, allVehicles] = await Promise.all([
       prisma.trip.findMany({
         where: { tenantId, createdAt: { gte: start } },
         include: { driver: true },
@@ -36,6 +36,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       }),
       prisma.driver.findMany({ where: { tenantId, isActive: true } }),
       prisma.trip.findMany({ where: { tenantId, status: 'active' } }),
+      prisma.vehicle.findMany({ where: { tenantId, isActive: true }, include: { maintenances: { orderBy: { performedAt: 'desc' }, take: 1 } } }),
     ])
 
     // ── KPIs financeiros ──────────────────────────────────────────────────
@@ -125,6 +126,28 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         hoursActive: Math.floor((now - t.startedAt!.getTime()) / 3600000),
       }))
 
+    // Veículos com manutenção vencida ou próxima (5000 km ou 30 dias)
+    const manutencaoPendente = allVehicles
+      .filter(v => {
+        const last = (v as any).maintenances[0]
+        if (!last) return false
+        const kmAlerta = last.nextServiceKm && v.currentKm >= last.nextServiceKm - 5000
+        const dataAlerta = last.nextServiceDate && new Date(last.nextServiceDate) <= in30days
+        return kmAlerta || dataAlerta
+      })
+      .map(v => {
+        const last = (v as any).maintenances[0]
+        return {
+          vehicleId: v.id,
+          plate: v.plate,
+          model: `${v.brand} ${v.model}`,
+          currentKm: v.currentKm,
+          nextServiceKm: last.nextServiceKm,
+          nextServiceDate: last.nextServiceDate,
+          kmRestantes: last.nextServiceKm ? last.nextServiceKm - v.currentKm : null,
+        }
+      })
+
     return {
       period,
       kpis: {
@@ -154,7 +177,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
         .sort((a, b) => b.value - a.value),
       kmByDriver: Object.values(kmByDriver).sort((a, b) => b.km - a.km).slice(0, 5),
-      alerts: { cnhExpirando, viagensLongas },
+      alerts: { cnhExpirando, viagensLongas, manutencaoPendente },
     }
   })
 

@@ -65,7 +65,7 @@ export default function DashboardPage() {
 
   const kpis = dash?.kpis
   const alerts = dash?.alerts
-  const totalAlerts = (alerts?.cnhExpirando?.length ?? 0) + (alerts?.viagensLongas?.length ?? 0)
+  const totalAlerts = (alerts?.cnhExpirando?.length ?? 0) + (alerts?.viagensLongas?.length ?? 0) + (alerts?.manutencaoPendente?.length ?? 0)
 
   return (
     <div className="p-6 space-y-6">
@@ -114,6 +114,12 @@ export default function DashboardPage() {
               <div key={v.id} className="flex items-center justify-between text-sm">
                 <span className="text-slate-300">🚛 Viagem {v.origin} → {v.destination} ativa há <strong>{v.hoursActive}h</strong></span>
                 <Link to={`/trips/${v.id}/active`} className="text-amber-400 text-xs hover:underline">Ver</Link>
+              </div>
+            ))}
+            {alerts.manutencaoPendente?.map((m: any) => (
+              <div key={m.vehicleId} className="flex items-center justify-between text-sm">
+                <span className="text-slate-300">🔧 <strong>{m.plate}</strong> — {m.kmRestantes <= 0 ? `manutenção ${Math.abs(m.kmRestantes).toLocaleString('pt-BR')} km atrasada` : `manutenção em ${m.kmRestantes.toLocaleString('pt-BR')} km`}</span>
+                <Link to={`/vehicles/${m.vehicleId}/maintenance`} className="text-amber-400 text-xs hover:underline">Ver</Link>
               </div>
             ))}
           </div>

@@ -56,14 +56,36 @@ model Vehicle {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  trips     Trip[]
-  kmLogs    KmLog[]
-  fuelLogs  FuelLog[]
+  tenant       Tenant              @relation(fields: [tenantId], references: [id])
+  trips        Trip[]
+  kmLogs       KmLog[]
+  fuelLogs     FuelLog[]
+  maintenances VehicleMaintenance[]
 
   @@unique([tenantId, plate])
   @@index([tenantId])
   @@map("vehicles")
+}
+
+model VehicleMaintenance {
+  id              String   @id @default(uuid())
+  tenantId        String
+  vehicleId       String
+  type            String
+  description     String
+  performedAt     DateTime
+  kmAtService     Int
+  cost            Decimal? @db.Decimal(10, 2)
+  nextServiceKm   Int?
+  nextServiceDate DateTime?
+  notes           String?
+  createdBy       String
+  createdAt       DateTime @default(now())
+
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, vehicleId])
+  @@map("vehicle_maintenances")
 }
 
 model Driver {

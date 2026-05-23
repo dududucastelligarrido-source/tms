@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { useVehicles } from '../../hooks/useVehicles.js'
 import { api } from '../../lib/api.js'
@@ -8,6 +9,7 @@ const TYPE_LABELS: Record<string, string> = { caminhao: 'Caminhão', van: 'Van',
 const emptyForm = { plate: '', brand: '', model: '', year: new Date().getFullYear(), currentKm: 0, type: 'caminhao' }
 
 export default function VehiclesPage() {
+  const navigate = useNavigate()
   const { data: vehicles = [], isLoading } = useVehicles()
   const user = getUser()
   const qc = useQueryClient()
@@ -86,6 +88,10 @@ export default function VehiclesPage() {
                 <div className="text-slate-100 font-medium text-sm">{v.plate} — {v.brand} {v.model}</div>
                 <div className="text-slate-400 text-xs mt-0.5">{v.year} · {TYPE_LABELS[v.type] ?? v.type} · KM {v.currentKm.toLocaleString('pt-BR')}</div>
               </div>
+              <button onClick={() => navigate(`/vehicles/${v.id}/maintenance`)}
+                className="text-xs text-blue-400 hover:text-blue-300 px-3 py-1.5 border border-slate-700 rounded-lg transition-colors">
+                Manutenções
+              </button>
             </div>
           ))}
           {(vehicles as any[]).length === 0 && <div className="p-8 text-center text-slate-500 text-sm">Nenhum veículo cadastrado.</div>}
