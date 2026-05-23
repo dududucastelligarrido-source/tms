@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.0.0",
-    "@tms/types": "workspace:*",
     "@vis.gl/react-google-maps": "^1.0.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

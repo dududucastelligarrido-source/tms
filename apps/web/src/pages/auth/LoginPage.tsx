@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api.js'
 import { setTokens } from '../../lib/auth.js'
-import type { LoginResponse } from '@tms/types'
+interface LoginResponse { token: string; refreshToken: string }
 
 export default function LoginPage() {
   const navigate = useNavigate()
