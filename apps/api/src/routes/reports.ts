@@ -5,6 +5,22 @@ import { tenantScope } from '../middleware/tenant-scope.js'
 import { requireRole } from '../middleware/require-role.js'
 import { prisma } from '../plugins/prisma.js'
 
+const CATEGORY_LABELS: Record<string, string> = {
+  pedagio: 'Pedágio',
+  manutencao: 'Manutenção',
+  alimentacao: 'Alimentação',
+  hospedagem: 'Hospedagem',
+  multa: 'Multa',
+  lavagem: 'Lavagem',
+  pneu: 'Pneu',
+  outros: 'Outros',
+}
+
+function categoryLabel(raw: string): string {
+  const normalized = raw.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  return CATEGORY_LABELS[normalized] ?? raw
+}
+
 export const reportRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
   fastify.addHook('preHandler', tenantScope)
@@ -77,31 +93,60 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
     // ── Faturamento vs Custos por semana/dia ─────────────────────────────
     function bucketLabel(date: Date): string {
       if (period === 7) return date.toLocaleDateString('pt-BR', { weekday: 'short' })
-      if (period === 30) return `Sem ${Math.ceil((date.getDate()) / 7)}`
+      if (period === 30) {
+        const dayOfPeriod = Math.floor((date.getTime() - start.getTime()) / 86400000)
+        return `Sem ${Math.floor(dayOfPeriod / 7) + 1}`
+      }
       return date.toLocaleDateString('pt-BR', { month: 'short' })
     }
 
-    const revenueMap: Record<string, { faturamento: number; custos: number }> = {}
+    function generateAllBuckets(): string[] {
+      if (period === 7) {
+        return Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(start); d.setDate(d.getDate() + i)
+          return d.toLocaleDateString('pt-BR', { weekday: 'short' })
+        })
+      }
+      if (period === 30) {
+        const labels: string[] = []
+        for (let w = 0; w < 5; w++) {
+          const d = new Date(start); d.setDate(d.getDate() + w * 7)
+          if (d <= end) labels.push(`Sem ${w + 1}`)
+        }
+        return labels
+      }
+      const seen = new Set<string>(); const labels: string[] = []
+      for (let i = 0; i < 90; i++) {
+        const d = new Date(start); d.setDate(d.getDate() + i)
+        const m = d.toLocaleDateString('pt-BR', { month: 'short' })
+        if (!seen.has(m)) { seen.add(m); labels.push(m) }
+      }
+      return labels
+    }
+
+    const todayLabel = bucketLabel(new Date())
+    const revenueMap: Record<string, { faturamento: number; custos: number; isCurrent: boolean }> = {}
+    for (const label of generateAllBuckets()) {
+      revenueMap[label] = { faturamento: 0, custos: 0, isCurrent: label === todayLabel }
+    }
     for (const t of completedTrips) {
       const label = bucketLabel(new Date(t.completedAt ?? t.createdAt))
-      if (!revenueMap[label]) revenueMap[label] = { faturamento: 0, custos: 0 }
-      revenueMap[label].faturamento += Number((t as any).cartaFrete ?? 0)
+      if (revenueMap[label]) revenueMap[label].faturamento += Number((t as any).cartaFrete ?? 0)
     }
     for (const c of costs) {
       const label = bucketLabel(new Date(c.paidAt))
-      if (!revenueMap[label]) revenueMap[label] = { faturamento: 0, custos: 0 }
-      revenueMap[label].custos += Number(c.amount)
+      if (revenueMap[label]) revenueMap[label].custos += Number(c.amount)
     }
     for (const f of fuelLogs) {
       const label = bucketLabel(new Date(f.loggedAt))
-      if (!revenueMap[label]) revenueMap[label] = { faturamento: 0, custos: 0 }
-      revenueMap[label].custos += Number(f.totalAmount)
+      if (revenueMap[label]) revenueMap[label].custos += Number(f.totalAmount)
     }
 
     // ── Custos por categoria ──────────────────────────────────────────────
     const costsByCategory: Record<string, number> = {}
     for (const c of costs) {
-      costsByCategory[c.category] = (costsByCategory[c.category] ?? 0) + Number(c.amount)
+      const label = categoryLabel(c.category)
+      costsByCategory[label] = (costsByCategory[label] ?? 0) + Number(c.amount)
     }
 
     // ── KM por motorista (top 5) ──────────────────────────────────────────
@@ -168,11 +213,10 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
     // ── Alertas ───────────────────────────────────────────────────────────
     const cnhExpirando = allDrivers
       .filter(d => d.cnhExpiresAt <= in30days)
-      .map(d => ({
-        name: d.name,
-        cnhExpiresAt: d.cnhExpiresAt,
-        daysLeft: Math.ceil((d.cnhExpiresAt.getTime() - Date.now()) / 86400000),
-      }))
+      .map(d => {
+        const daysLeft = Math.ceil((d.cnhExpiresAt.getTime() - Date.now()) / 86400000)
+        return { name: d.name, cnhExpiresAt: d.cnhExpiresAt, daysLeft, expired: daysLeft < 0 }
+      })
       .sort((a, b) => a.daysLeft - b.daysLeft)
 
     const now = Date.now()
@@ -237,6 +281,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         label,
         faturamento: Number(v.faturamento.toFixed(2)),
         custos: Number(v.custos.toFixed(2)),
+        isCurrent: v.isCurrent,
       })),
       costsByCategory: Object.entries(costsByCategory)
         .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))

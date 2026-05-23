@@ -5,6 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts'
+import { AlertOctagon, AlertTriangle, Truck, Wrench } from 'lucide-react'
 import { useTrips } from '../../hooks/useTrips.js'
 import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
@@ -129,21 +130,47 @@ export default function DashboardPage() {
           <h2 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-3">Alertas</h2>
           <div className="space-y-2">
             {alerts.cnhExpirando.map((a: any) => (
-              <div key={a.name} className="flex items-center justify-between text-sm">
-                <span className="text-slate-300">🪪 CNH de <strong>{a.name}</strong> vence em <strong>{a.daysLeft} dias</strong></span>
-                <span className="text-red-400 text-xs">{new Date(a.cnhExpiresAt).toLocaleDateString('pt-BR')}</span>
+              <div key={a.name} className="flex items-center justify-between text-sm gap-2">
+                <span className="flex items-center gap-1.5">
+                  {a.expired
+                    ? <AlertOctagon size={14} className="text-red-400 shrink-0" />
+                    : <AlertTriangle size={14} className="text-amber-400 shrink-0" />
+                  }
+                  <span className="text-slate-300">
+                    CNH de <strong>{a.name}</strong>{' '}
+                    {a.expired
+                      ? <span className="text-red-400">vencida há <strong>{Math.abs(a.daysLeft)} dias</strong></span>
+                      : a.daysLeft === 0
+                      ? <span className="text-red-400">vence <strong>hoje</strong></span>
+                      : <span className="text-amber-400">vence em <strong>{a.daysLeft} dias</strong></span>
+                    }
+                  </span>
+                </span>
+                <span className="text-slate-500 text-xs shrink-0">{new Date(a.cnhExpiresAt).toLocaleDateString('pt-BR')}</span>
               </div>
             ))}
             {alerts.viagensLongas.map((v: any) => (
-              <div key={v.id} className="flex items-center justify-between text-sm">
-                <span className="text-slate-300">🚛 Viagem {v.origin} → {v.destination} ativa há <strong>{v.hoursActive}h</strong></span>
-                <Link to={`/trips/${v.id}/active`} className="text-amber-400 text-xs hover:underline">Ver</Link>
+              <div key={v.id} className="flex items-center justify-between text-sm gap-2">
+                <span className="flex items-center gap-1.5">
+                  <Truck size={14} className="text-amber-400 shrink-0" />
+                  <span className="text-slate-300">Viagem {v.origin} → {v.destination} ativa há <strong>{v.hoursActive}h</strong></span>
+                </span>
+                <Link to={`/trips/${v.id}/active`} className="text-amber-400 text-xs hover:underline shrink-0">Ver</Link>
               </div>
             ))}
             {alerts.manutencaoPendente?.map((m: any) => (
-              <div key={m.vehicleId} className="flex items-center justify-between text-sm">
-                <span className="text-slate-300">🔧 <strong>{m.plate}</strong> — {m.kmRestantes <= 0 ? `manutenção ${Math.abs(m.kmRestantes).toLocaleString('pt-BR')} km atrasada` : `manutenção em ${m.kmRestantes.toLocaleString('pt-BR')} km`}</span>
-                <Link to={`/vehicles/${m.vehicleId}/maintenance`} className="text-amber-400 text-xs hover:underline">Ver</Link>
+              <div key={m.vehicleId} className="flex items-center justify-between text-sm gap-2">
+                <span className="flex items-center gap-1.5">
+                  <Wrench size={14} className="text-amber-400 shrink-0" />
+                  <span className="text-slate-300">
+                    <strong>{m.plate}</strong> —{' '}
+                    {m.kmRestantes !== null && m.kmRestantes <= 0
+                      ? `manutenção ${Math.abs(m.kmRestantes).toLocaleString('pt-BR')} km atrasada`
+                      : `manutenção em ${(m.kmRestantes ?? 0).toLocaleString('pt-BR')} km`
+                    }
+                  </span>
+                </span>
+                <Link to={`/vehicles/${m.vehicleId}/maintenance`} className="text-amber-400 text-xs hover:underline shrink-0">Ver</Link>
               </div>
             ))}
           </div>
@@ -273,8 +300,16 @@ export default function DashboardPage() {
                     formatter={(v: any) => `R$ ${fmt(Number(v))}`}
                     labelStyle={{ color: '#94a3b8' }}
                   />
-                  <Bar dataKey="faturamento" name="Faturamento" fill="#22c55e" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="custos" name="Custos" fill="#ef4444" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="faturamento" name="Faturamento" radius={[3, 3, 0, 0]}>
+                    {revenueVsCosts.map((entry: any, index: number) => (
+                      <Cell key={index} fill="#22c55e" opacity={entry.isCurrent ? 0.4 : 1} />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="custos" name="Custos" radius={[3, 3, 0, 0]}>
+                    {revenueVsCosts.map((entry: any, index: number) => (
+                      <Cell key={index} fill="#ef4444" opacity={entry.isCurrent ? 0.4 : 1} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -299,17 +334,34 @@ export default function DashboardPage() {
             {costsByCategory.length === 0 ? (
               <p className="text-slate-500 text-sm text-center py-8">Sem custos no período.</p>
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={costsByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85}
-                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                    labelLine={false}>
-                    {costsByCategory.map((_: any, i: number) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-                    formatter={(v: any) => `R$ ${fmt(Number(v))}`} itemStyle={{ color: '#94a3b8' }} />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="flex gap-4 items-center">
+                <div className="shrink-0" style={{ width: 160, height: 180 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={costsByCategory} dataKey="value" nameKey="name"
+                        cx="50%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={2}>
+                        {costsByCategory.map((_: any, i: number) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
+                        formatter={(v: any) => `R$ ${fmt(Number(v))}`} itemStyle={{ color: '#94a3b8' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 flex flex-col gap-2.5 min-w-0">
+                  {(() => {
+                    const total = costsByCategory.reduce((s: number, c: any) => s + c.value, 0)
+                    return costsByCategory.map((item: any, i: number) => (
+                      <div key={item.name} className="flex items-center gap-2 text-xs min-w-0">
+                        <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <span className="text-slate-300 truncate flex-1">{item.name}</span>
+                        <span className="text-slate-500 shrink-0 tabular-nums">
+                          {total > 0 ? ((item.value / total) * 100).toFixed(0) : 0}%
+                        </span>
+                      </div>
+                    ))
+                  })()}
+                </div>
+              </div>
             )}
           </ChartCard>
 
