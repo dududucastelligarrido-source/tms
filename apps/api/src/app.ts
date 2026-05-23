@@ -10,6 +10,7 @@ import { costRoutes } from './routes/costs.js'
 import { kmLogRoutes } from './routes/km-logs.js'
 import { checklistTemplateRoutes } from './routes/checklist-templates.js'
 import { tripChecklistRoutes } from './routes/trip-checklists.js'
+import { userRoutes } from './routes/users.js'
 
 export async function createApp(opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: opts.logger ?? true })
@@ -27,6 +28,7 @@ export async function createApp(opts: { logger?: boolean } = {}): Promise<Fastif
   await app.register(kmLogRoutes, { prefix: '/api/v1' })
   await app.register(checklistTemplateRoutes, { prefix: '/api/v1' })
   await app.register(tripChecklistRoutes, { prefix: '/api/v1' })
+  await app.register(userRoutes, { prefix: '/api/v1' })
 
   return app
 }
