@@ -25,6 +25,9 @@ export async function createApp(opts: { logger?: boolean } = {}): Promise<Fastif
       cb(null, false)
     },
     credentials: true,
+    preflight: true,
+    strictPreflight: false,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
   await app.register(prismaPlugin)
   await app.register(swaggerPlugin)
