@@ -20,7 +20,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: 'Unknown error' }))
-    throw new Error(error.error ?? `HTTP ${res.status}`)
+    const msg = Array.isArray(error.error)
+      ? error.error.map((e: any) => e.message ?? JSON.stringify(e)).join(', ')
+      : error.error ?? `HTTP ${res.status}`
+    throw new Error(msg)
   }
 
   if (res.status === 204) return undefined as T
