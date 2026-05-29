@@ -4,10 +4,23 @@ import { authenticate } from '../middleware/authenticate.js'
 import { tenantScope } from '../middleware/tenant-scope.js'
 import { requireRole } from '../middleware/require-role.js'
 import { prisma } from '../plugins/prisma.js'
+function isValidCPF(cpf: string): boolean {
+  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false
+  let sum = 0
+  for (let i = 0; i < 9; i++) sum += parseInt(cpf[i]) * (10 - i)
+  let rem = (sum * 10) % 11
+  if (rem >= 10) rem = 0
+  if (rem !== parseInt(cpf[9])) return false
+  sum = 0
+  for (let i = 0; i < 10; i++) sum += parseInt(cpf[i]) * (11 - i)
+  rem = (sum * 10) % 11
+  if (rem >= 10) rem = 0
+  return rem === parseInt(cpf[10])
+}
 
 const CreateDriverSchema = z.object({
-  name: z.string().min(1),
-  cpf: z.string().length(11),
+  name: z.string().min(1, 'Nome é obrigatório'),
+  cpf: z.string().length(11, 'CPF deve ter 11 dígitos').refine(isValidCPF, { message: 'CPF inválido' }),
   cnhNumber: z.string().min(1),
   cnhCategory: z.enum(['A', 'B', 'C', 'D', 'E']),
   cnhExpiresAt: z.string().datetime(),

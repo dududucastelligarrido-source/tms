@@ -5,8 +5,13 @@ import { tenantScope } from '../middleware/tenant-scope.js'
 import { requireRole } from '../middleware/require-role.js'
 import { prisma } from '../plugins/prisma.js'
 
+function isValidPlate(raw: string): boolean {
+  const p = raw.replace('-', '').toUpperCase()
+  return /^[A-Z]{3}\d{4}$/.test(p) || /^[A-Z]{3}\d[A-Z]\d{2}$/.test(p)
+}
+
 const CreateVehicleSchema = z.object({
-  plate: z.string().min(7).max(8),
+  plate: z.string().min(7).max(8).transform(s => s.toUpperCase()).refine(isValidPlate, { message: 'Placa inválida. Use ABC-1234 ou Mercosul ABC1D234' }),
   model: z.string().min(1),
   brand: z.string().min(1),
   year: z.number().int().min(1990).max(new Date().getFullYear() + 1),

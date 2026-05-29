@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { getToken } from './lib/auth.js'
+import { hasCredentials, isAccessTokenExpired, clearTokens, getRefreshToken } from './lib/auth.js'
 import LoginPage from './pages/auth/LoginPage.js'
 import DashboardPage from './pages/dashboard/DashboardPage.js'
 import TripsPage from './pages/trips/TripsPage.js'
@@ -20,7 +20,13 @@ import KmLogsPage from './pages/trips/KmLogsPage.js'
 import Layout from './components/Layout.js'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  if (!getToken()) return <Navigate to="/login" replace />
+  // Sem nenhuma credencial armazenada → login
+  if (!hasCredentials()) return <Navigate to="/login" replace />
+  // Access token expirado e sem refresh token → sessão encerrada
+  if (isAccessTokenExpired() && !getRefreshToken()) {
+    clearTokens()
+    return <Navigate to="/login" replace />
+  }
   return <>{children}</>
 }
 

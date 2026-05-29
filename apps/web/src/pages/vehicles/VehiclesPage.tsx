@@ -6,9 +6,17 @@ import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
 import { useConfirm } from '../../components/ConfirmModal.js'
+import { isValidPlate } from '../../lib/validation.js'
 
 const TYPE_LABELS: Record<string, string> = { caminhao: 'Caminhão', van: 'Van', utilitario: 'Utilitário', carreta: 'Carreta', outro: 'Outro' }
 const emptyForm = { plate: '', brand: '', model: '', year: new Date().getFullYear(), currentKm: 0, type: 'caminhao' }
+
+function validateVehicleForm(f: typeof emptyForm): string | null {
+  if (!isValidPlate(f.plate)) return 'Placa inválida. Use ABC-1234 (antigo) ou ABC1D234 (Mercosul)'
+  if (!f.brand.trim()) return 'Marca é obrigatória'
+  if (!f.model.trim()) return 'Modelo é obrigatório'
+  return null
+}
 
 export default function VehiclesPage() {
   const navigate = useNavigate()
@@ -107,7 +115,7 @@ export default function VehiclesPage() {
           <FormFields f={form} set={setForm} />
           {error && <p className="text-red-400 text-xs mt-3">{error}</p>}
           <div className="flex gap-3 mt-4">
-            <button onClick={() => create.mutate(form)} disabled={create.isPending}
+            <button onClick={() => { const err = validateVehicleForm(form); if (err) { setError(err); return } create.mutate(form) }} disabled={create.isPending}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
               {create.isPending ? 'Salvando...' : 'Salvar'}
             </button>
@@ -133,7 +141,7 @@ export default function VehiclesPage() {
                   <FormFields f={editForm} set={setEditForm} />
                   {editError && <p className="text-red-400 text-xs mt-3">{editError}</p>}
                   <div className="flex gap-2 mt-4">
-                    <button onClick={() => update.mutate({ id: v.id, data: editForm })} disabled={update.isPending}
+                    <button onClick={() => { const err = validateVehicleForm(editForm); if (err) { setEditError(err); return } update.mutate({ id: v.id, data: editForm }) }} disabled={update.isPending}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50">
                       {update.isPending ? 'Salvando...' : 'Salvar'}
                     </button>
