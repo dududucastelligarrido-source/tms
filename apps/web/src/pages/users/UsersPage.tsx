@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api.js'
+import { useToast } from '../../components/Toast.js'
 
 type User = { id: string; name: string; email: string; role: string; createdAt: string }
 
@@ -10,6 +11,7 @@ const emptyForm = { name: '', email: '', password: '', role: 'motorista' }
 
 export default function UsersPage() {
   const qc = useQueryClient()
+  const toast = useToast()
   const { data: users = [], isLoading } = useQuery({ queryKey: ['users'], queryFn: () => api.get<User[]>('/users') })
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -20,8 +22,8 @@ export default function UsersPage() {
 
   const create = useMutation({
     mutationFn: (data: typeof form) => api.post('/users', data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); setShowForm(false); setForm(emptyForm); setError('') },
-    onError: (e: any) => setError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); setShowForm(false); setForm(emptyForm); setError(''); toast.success('Usuário criado!') },
+    onError: (e: any) => { setError(e.message); toast.error(e.message) },
   })
 
   const update = useMutation({
@@ -30,13 +32,14 @@ export default function UsersPage() {
       if (data.password) payload.password = data.password
       return api.patch(`/users/${id}`, payload)
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); setEditingId(null); setEditError('') },
-    onError: (e: any) => setEditError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); setEditingId(null); setEditError(''); toast.success('Usuário atualizado!') },
+    onError: (e: any) => { setEditError(e.message); toast.error(e.message) },
   })
 
   const deactivate = useMutation({
     mutationFn: (id: string) => api.delete(`/users/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Usuário desativado.') },
+    onError: (e: any) => toast.error(e.message),
   })
 
   function startEdit(u: User) {

@@ -7,6 +7,7 @@ import { api } from '../../lib/api.js'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 import FreightCalculator from '../../components/FreightCalculator.js'
 import { getUser } from '../../lib/auth.js'
+import { useToast } from '../../components/Toast.js'
 
 const COST_CATEGORIES: Record<string, string> = {
   fuel: 'Combustível', toll: 'Pedágio', meal: 'Alimentação', maintenance: 'Manutenção', other: 'Outro',
@@ -23,6 +24,7 @@ export default function TripDetailPage() {
   const { data: trip, isLoading } = useTrip(id!)
   const { data: vehicles = [] } = useVehicles()
   const { data: drivers = [] } = useDrivers()
+  const toast = useToast()
   const [showCostForm, setShowCostForm] = useState(false)
   const [costForm, setCostForm] = useState(emptyCostForm)
   const [costError, setCostError] = useState('')
@@ -45,8 +47,8 @@ export default function TripDetailPage() {
       ...(data.pesoCarga ? { pesoCarga: Number(data.pesoCarga) } : {}),
       ...(data.notes ? { notes: data.notes } : {}),
     }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['trip', id] }); setShowEditForm(false); setEditError('') },
-    onError: (e: any) => setEditError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['trip', id] }); setShowEditForm(false); setEditError(''); toast.success('Viagem atualizada!') },
+    onError: (e: any) => { setEditError(e.message); toast.error(e.message) },
   })
 
   function startEdit(t: any) {
@@ -78,20 +80,27 @@ export default function TripDetailPage() {
       setCostForm(emptyCostForm)
       setShowCostForm(false)
       setCostError('')
+      toast.success('Custo adicionado!')
     },
-    onError: (e: any) => setCostError(e.message),
+    onError: (e: any) => { setCostError(e.message); toast.error(e.message) },
   })
 
   const deleteCost = useMutation({
     mutationFn: (costId: string) => api.delete(`/trips/${id}/costs/${costId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['trip', id] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['trip', id] }); toast.success('Custo removido.') },
+    onError: (e: any) => toast.error(e.message),
   })
 
   async function cancelTrip() {
     if (!confirm('Cancelar esta viagem?')) return
-    await api.patch(`/trips/${id}/cancel`)
-    qc.invalidateQueries({ queryKey: ['trips'] })
-    navigate('/trips')
+    try {
+      await api.patch(`/trips/${id}/cancel`)
+      qc.invalidateQueries({ queryKey: ['trips'] })
+      toast.success('Viagem cancelada.')
+      navigate('/trips')
+    } catch (e: any) {
+      toast.error(e.message)
+    }
   }
 
   if (isLoading) return <div className="p-6 text-slate-400">Carregando...</div>

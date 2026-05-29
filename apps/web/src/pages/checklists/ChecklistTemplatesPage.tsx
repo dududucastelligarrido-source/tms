@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
+import { useToast } from '../../components/Toast.js'
 
 const TYPE_LABELS: Record<string, string> = {
   departure: 'Saída', arrival: 'Chegada', driver_change: 'Troca de Motorista',
@@ -27,6 +28,7 @@ export default function ChecklistTemplatesPage() {
   const [editForm, setEditForm] = useState(emptyForm)
   const [editError, setEditError] = useState('')
 
+  const toast = useToast()
   const inputCls = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500'
 
   const create = useMutation({
@@ -34,8 +36,8 @@ export default function ChecklistTemplatesPage() {
       ...data,
       items: data.items.map((it, i) => ({ ...it, orderIndex: i })),
     }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklist-templates'] }); setShowForm(false); setForm(emptyForm); setFormError('') },
-    onError: (e: any) => setFormError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklist-templates'] }); setShowForm(false); setForm(emptyForm); setFormError(''); toast.success('Template criado!') },
+    onError: (e: any) => { setFormError(e.message); toast.error(e.message) },
   })
 
   const update = useMutation({
@@ -44,13 +46,14 @@ export default function ChecklistTemplatesPage() {
         ...data,
         items: data.items.map((it, i) => ({ ...it, orderIndex: i })),
       }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklist-templates'] }); setEditingId(null); setEditError('') },
-    onError: (e: any) => setEditError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklist-templates'] }); setEditingId(null); setEditError(''); toast.success('Template atualizado!') },
+    onError: (e: any) => { setEditError(e.message); toast.error(e.message) },
   })
 
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/checklist-templates/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['checklist-templates'] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklist-templates'] }); toast.success('Template removido.') },
+    onError: (e: any) => toast.error(e.message),
   })
 
   function startEdit(t: any) {

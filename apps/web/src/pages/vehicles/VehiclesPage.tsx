@@ -4,6 +4,7 @@ import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { useVehicles } from '../../hooks/useVehicles.js'
 import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
+import { useToast } from '../../components/Toast.js'
 
 const TYPE_LABELS: Record<string, string> = { caminhao: 'Caminhão', van: 'Van', utilitario: 'Utilitário', carreta: 'Carreta', outro: 'Outro' }
 const emptyForm = { plate: '', brand: '', model: '', year: new Date().getFullYear(), currentKm: 0, type: 'caminhao' }
@@ -17,27 +18,30 @@ export default function VehiclesPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState(emptyForm)
   const [editError, setEditError] = useState('')
 
+  const toast = useToast()
   const inputClass = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500'
 
   const create = useMutation({
     mutationFn: (data: typeof form) => api.post('/vehicles', data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vehicles'] }); setShowForm(false); setForm(emptyForm); setError('') },
-    onError: (e: any) => setError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vehicles'] }); setShowForm(false); setForm(emptyForm); setError(''); toast.success('Veículo cadastrado!') },
+    onError: (e: any) => { setError(e.message); toast.error(e.message) },
   })
 
   const update = useMutation({
     mutationFn: ({ id, data }: { id: string; data: typeof editForm }) => api.patch(`/vehicles/${id}`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vehicles'] }); setEditingId(null); setEditError('') },
-    onError: (e: any) => setEditError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vehicles'] }); setEditingId(null); setEditError(''); toast.success('Veículo atualizado!') },
+    onError: (e: any) => { setEditError(e.message); toast.error(e.message) },
   })
 
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/vehicles/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['vehicles'] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vehicles'] }); toast.success('Veículo removido.') },
+    onError: (e: any) => toast.error(e.message),
   })
 
   function startEdit(v: any) {
@@ -79,7 +83,7 @@ export default function VehiclesPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-slate-100">Veículos</h1>
         {isAdmin && (
           <button onClick={() => { setShowForm(true); setEditingId(null) }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
@@ -87,6 +91,13 @@ export default function VehiclesPage() {
           </button>
         )}
       </div>
+
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Buscar por placa, marca ou modelo..."
+        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 mb-4"
+      />
 
       {showForm && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
@@ -107,7 +118,13 @@ export default function VehiclesPage() {
         <div className="text-slate-400 text-sm">Carregando...</div>
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          {(vehicles as any[]).map((v: any) => (
+          {(vehicles as any[])
+            .filter((v: any) => {
+              if (!search) return true
+              const q = search.toLowerCase()
+              return v.plate?.toLowerCase().includes(q) || v.brand?.toLowerCase().includes(q) || v.model?.toLowerCase().includes(q)
+            })
+            .map((v: any) => (
             <div key={v.id} className="border-b border-slate-800 last:border-0">
               {editingId === v.id ? (
                 <div className="p-4">
@@ -150,6 +167,9 @@ export default function VehiclesPage() {
             </div>
           ))}
           {(vehicles as any[]).length === 0 && <div className="p-8 text-center text-slate-500 text-sm">Nenhum veículo cadastrado.</div>}
+          {(vehicles as any[]).length > 0 && (vehicles as any[]).filter((v: any) => { if (!search) return true; const q = search.toLowerCase(); return v.plate?.toLowerCase().includes(q) || v.brand?.toLowerCase().includes(q) || v.model?.toLowerCase().includes(q) }).length === 0 && (
+            <div className="p-8 text-center text-slate-500 text-sm">Nenhum veículo encontrado para "{search}".</div>
+          )}
         </div>
       )}
     </div>

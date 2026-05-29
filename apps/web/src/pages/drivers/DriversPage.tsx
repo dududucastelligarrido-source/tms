@@ -3,6 +3,7 @@ import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { useDrivers } from '../../hooks/useDrivers.js'
 import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
+import { useToast } from '../../components/Toast.js'
 
 const CNH_CATEGORIES = ['A', 'B', 'C', 'D', 'E']
 const emptyForm = { name: '', cpf: '', cnhNumber: '', cnhCategory: 'B', cnhExpiresAt: '' }
@@ -15,6 +16,7 @@ export default function DriversPage() {
   const { data: drivers = [], isLoading } = useDrivers()
   const user = getUser()
   const qc = useQueryClient()
+  const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -22,24 +24,26 @@ export default function DriversPage() {
   const [error, setError] = useState('')
   const [editError, setEditError] = useState('')
 
+  const toast = useToast()
   const inputClass = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500'
 
   const create = useMutation({
     mutationFn: (data: typeof form) => api.post('/drivers', { ...data, cnhExpiresAt: new Date(data.cnhExpiresAt).toISOString() }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['drivers'] }); setShowForm(false); setForm(emptyForm); setError('') },
-    onError: (e: any) => setError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['drivers'] }); setShowForm(false); setForm(emptyForm); setError(''); toast.success('Motorista cadastrado!') },
+    onError: (e: any) => { setError(e.message); toast.error(e.message) },
   })
 
   const update = useMutation({
     mutationFn: ({ id, data }: { id: string; data: typeof editForm }) =>
       api.patch(`/drivers/${id}`, { ...data, cnhExpiresAt: new Date(data.cnhExpiresAt).toISOString() }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['drivers'] }); setEditingId(null); setEditError('') },
-    onError: (e: any) => setEditError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['drivers'] }); setEditingId(null); setEditError(''); toast.success('Motorista atualizado!') },
+    onError: (e: any) => { setEditError(e.message); toast.error(e.message) },
   })
 
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/drivers/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['drivers'] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['drivers'] }); toast.success('Motorista removido.') },
+    onError: (e: any) => toast.error(e.message),
   })
 
   function startEdit(d: any) {
@@ -77,7 +81,7 @@ export default function DriversPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-slate-100">Motoristas</h1>
         {user?.role === 'admin' && (
           <button onClick={() => { setShowForm(true); setEditingId(null) }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
@@ -85,6 +89,13 @@ export default function DriversPage() {
           </button>
         )}
       </div>
+
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Buscar por nome, CPF ou CNH..."
+        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 mb-4"
+      />
 
       {showForm && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
@@ -131,7 +142,13 @@ export default function DriversPage() {
         })()}
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          {(drivers as any[]).map((d: any) => {
+          {(drivers as any[])
+            .filter((d: any) => {
+              if (!search) return true
+              const q = search.toLowerCase()
+              return d.name?.toLowerCase().includes(q) || d.cpf?.includes(q) || d.cnhNumber?.toLowerCase().includes(q)
+            })
+            .map((d: any) => {
             const hoje = Date.now()
             const expiryMs = new Date(d.cnhExpiresAt).getTime()
             const diffDias = Math.ceil((expiryMs - hoje) / 86400000)
@@ -181,6 +198,9 @@ export default function DriversPage() {
           )
           })}
           {(drivers as any[]).length === 0 && <div className="p-8 text-center text-slate-500 text-sm">Nenhum motorista cadastrado.</div>}
+          {(drivers as any[]).length > 0 && search && (drivers as any[]).filter((d: any) => { const q = search.toLowerCase(); return d.name?.toLowerCase().includes(q) || d.cpf?.includes(q) || d.cnhNumber?.toLowerCase().includes(q) }).length === 0 && (
+            <div className="p-8 text-center text-slate-500 text-sm">Nenhum motorista encontrado para "{search}".</div>
+          )}
         </div>
         </>
       )}

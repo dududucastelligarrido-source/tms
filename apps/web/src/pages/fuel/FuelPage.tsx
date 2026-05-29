@@ -3,6 +3,7 @@ import { useFuelLogs, useCreateFuelLog, useUpdateFuelLog, useDeleteFuelLog } fro
 import { useVehicles } from '../../hooks/useVehicles.js'
 import { useDrivers } from '../../hooks/useDrivers.js'
 import { getUser } from '../../lib/auth.js'
+import { useToast } from '../../components/Toast.js'
 
 const EMPTY_FORM = {
   vehicleId: '', driverId: '', tripId: '',
@@ -18,11 +19,15 @@ export default function FuelPage() {
   const [page, setPage] = useState(1)
   const [filterVehicleId, setFilterVehicleId] = useState('')
   const [filterDriverId, setFilterDriverId] = useState('')
+  const [filterStartDate, setFilterStartDate] = useState('')
+  const [filterEndDate, setFilterEndDate] = useState('')
   const { data: logsResult, isLoading } = useFuelLogs({
     page,
     limit: 50,
     ...(filterVehicleId ? { vehicleId: filterVehicleId } : {}),
     ...(filterDriverId ? { driverId: filterDriverId } : {}),
+    ...(filterStartDate ? { startDate: filterStartDate } : {}),
+    ...(filterEndDate ? { endDate: filterEndDate } : {}),
   })
   const logs = logsResult?.data ?? []
   const logsPages = logsResult?.pages ?? 1
@@ -32,6 +37,7 @@ export default function FuelPage() {
   const updateLog = useUpdateFuelLog()
   const deleteLog = useDeleteFuelLog()
 
+  const toast = useToast()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
@@ -66,8 +72,10 @@ export default function FuelPage() {
         },
       })
       setEditingId(null)
+      toast.success('Abastecimento atualizado!')
     } catch (e: any) {
       setEditError(e.message)
+      toast.error(e.message)
     }
   }
 
@@ -88,14 +96,21 @@ export default function FuelPage() {
       })
       setForm(EMPTY_FORM)
       setShowForm(false)
+      toast.success('Abastecimento registrado!')
     } catch (err: any) {
       setError(err.message)
+      toast.error(err.message)
     }
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Excluir este registro de combustível?')) return
-    await deleteLog.mutateAsync(id)
+    try {
+      await deleteLog.mutateAsync(id)
+      toast.success('Registro excluído.')
+    } catch (e: any) {
+      toast.error(e.message)
+    }
   }
 
   const fuelTypeLabel = (type: string) => type === 'diesel' ? 'Diesel' : 'Arla 32'
@@ -111,7 +126,7 @@ export default function FuelPage() {
       </div>
 
       {/* Filtros */}
-      <div className="flex gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-6">
         <select
           value={filterVehicleId}
           onChange={e => { setFilterVehicleId(e.target.value); setPage(1) }}
@@ -128,9 +143,23 @@ export default function FuelPage() {
           <option value="">Todos os motoristas</option>
           {(drivers as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
-        {(filterVehicleId || filterDriverId) && (
+        <input
+          type="date"
+          value={filterStartDate}
+          onChange={e => { setFilterStartDate(e.target.value); setPage(1) }}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+          title="Data início"
+        />
+        <input
+          type="date"
+          value={filterEndDate}
+          onChange={e => { setFilterEndDate(e.target.value); setPage(1) }}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+          title="Data fim"
+        />
+        {(filterVehicleId || filterDriverId || filterStartDate || filterEndDate) && (
           <button
-            onClick={() => { setFilterVehicleId(''); setFilterDriverId(''); setPage(1) }}
+            onClick={() => { setFilterVehicleId(''); setFilterDriverId(''); setFilterStartDate(''); setFilterEndDate(''); setPage(1) }}
             className="text-xs text-slate-400 hover:text-slate-200 px-3 py-2 border border-slate-700 rounded-lg"
           >
             Limpar filtros
