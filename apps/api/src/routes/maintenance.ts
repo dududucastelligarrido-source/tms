@@ -22,6 +22,35 @@ export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
   fastify.addHook('preHandler', tenantScope)
 
+  fastify.get('/maintenance', async (request) => {
+    const tenantId = (request as any).tenantId
+    const vehicles = await prisma.vehicle.findMany({
+      where: { tenantId, isActive: true },
+      orderBy: { plate: 'asc' },
+    })
+
+    const results = await Promise.all(vehicles.map(async (vehicle) => {
+      const latest = await prisma.vehicleMaintenance.findFirst({
+        where: { vehicleId: vehicle.id },
+        orderBy: { performedAt: 'desc' },
+      })
+      const kmRestantes = latest?.nextServiceKm ? latest.nextServiceKm - vehicle.currentKm : null
+      const diasRestantes = latest?.nextServiceDate
+        ? Math.ceil((new Date(latest.nextServiceDate).getTime() - Date.now()) / 86400000)
+        : null
+
+      let status: 'ok' | 'warning' | 'overdue' = 'ok'
+      if (kmRestantes !== null && kmRestantes <= 0) status = 'overdue'
+      else if (diasRestantes !== null && diasRestantes <= 0) status = 'overdue'
+      else if (kmRestantes !== null && kmRestantes <= 5000) status = 'warning'
+      else if (diasRestantes !== null && diasRestantes <= 30) status = 'warning'
+
+      return { vehicle, latest, kmRestantes, diasRestantes, status }
+    }))
+
+    return results
+  })
+
   fastify.get('/vehicles/:vehicleId/maintenance', async (request, reply) => {
     const { vehicleId } = z.object({ vehicleId: z.string().uuid() }).parse(request.params)
     const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, tenantId: (request as any).tenantId } })

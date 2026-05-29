@@ -7,6 +7,7 @@ import TripDetailPage from './pages/trips/TripDetailPage.js'
 import NewTripPage from './pages/trips/NewTripPage.js'
 import ActiveTripPage from './pages/trips/ActiveTripPage.js'
 import ChecklistPage from './pages/checklists/ChecklistPage.js'
+import ChecklistTemplatesPage from './pages/checklists/ChecklistTemplatesPage.js'
 import VehiclesPage from './pages/vehicles/VehiclesPage.js'
 import DriversPage from './pages/drivers/DriversPage.js'
 import UsersPage from './pages/users/UsersPage.js'
@@ -14,6 +15,7 @@ import ProfilePage from './pages/profile/ProfilePage.js'
 import ReportsPage from './pages/reports/ReportsPage.js'
 import FuelPage from './pages/fuel/FuelPage.js'
 import MaintenancePage from './pages/maintenance/MaintenancePage.js'
+import MaintenanceOverviewPage from './pages/maintenance/MaintenanceOverviewPage.js'
 import Layout from './components/Layout.js'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -39,6 +41,8 @@ export default function App() {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="fuel" element={<FuelPage />} />
+        <Route path="maintenance" element={<MaintenanceOverviewPage />} />
+        <Route path="checklist-templates" element={<ChecklistTemplatesPage />} />
         <Route path="vehicles/:vehicleId/maintenance" element={<MaintenancePage />} />
       </Route>
     </Routes>

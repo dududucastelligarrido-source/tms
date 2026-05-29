@@ -84,6 +84,18 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(trip)
   })
 
+  fastify.patch('/trips/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    const trip = await prisma.trip.findFirstOrThrow({ where: { id } })
+    if (trip.status !== 'draft') return reply.status(422).send({ error: 'Só é possível editar viagens em rascunho' })
+
+    let data: Partial<z.infer<typeof CreateTripSchema>>
+    try { data = CreateTripSchema.partial().parse(request.body) }
+    catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
+
+    return prisma.trip.update({ where: { id }, data: data as any })
+  })
+
   // START: draft → active
   // Motorista can only start their own trip; admin can start any trip.
   fastify.patch('/trips/:id/start', async (request, reply) => {

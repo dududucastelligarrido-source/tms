@@ -1,17 +1,15 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTrip } from '../../hooks/useTrips.js'
+import { useVehicles } from '../../hooks/useVehicles.js'
+import { useDrivers } from '../../hooks/useDrivers.js'
 import { api } from '../../lib/api.js'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 import FreightCalculator from '../../components/FreightCalculator.js'
 import { getUser } from '../../lib/auth.js'
 
 const COST_CATEGORIES: Record<string, string> = {
-  fuel: 'Combustível',
-  toll: 'Pedágio',
-  meal: 'Alimentação',
-  maintenance: 'Manutenção',
-  other: 'Outro',
+  fuel: 'Combustível', toll: 'Pedágio', meal: 'Alimentação', maintenance: 'Manutenção', other: 'Outro',
 }
 
 const emptyCostForm = { category: 'toll' as keyof typeof COST_CATEGORIES, description: '', amount: '', paidAt: '' }
@@ -23,9 +21,49 @@ export default function TripDetailPage() {
   const user = getUser()
   const isAdmin = user?.role === 'admin'
   const { data: trip, isLoading } = useTrip(id!)
+  const { data: vehicles = [] } = useVehicles()
+  const { data: drivers = [] } = useDrivers()
   const [showCostForm, setShowCostForm] = useState(false)
   const [costForm, setCostForm] = useState(emptyCostForm)
   const [costError, setCostError] = useState('')
+  const [showEditForm, setShowEditForm] = useState(false)
+  const [editForm, setEditForm] = useState({
+    originAddress: '', destinationAddress: '', driverId: '', vehicleId: '',
+    kmStart: '', cartaFrete: '', adiantamento: '', pesoCarga: '', notes: '',
+  })
+  const [editError, setEditError] = useState('')
+
+  const updateTrip = useMutation({
+    mutationFn: (data: typeof editForm) => api.patch(`/trips/${id}`, {
+      originAddress: data.originAddress,
+      destinationAddress: data.destinationAddress,
+      driverId: data.driverId,
+      vehicleId: data.vehicleId,
+      kmStart: Number(data.kmStart),
+      ...(data.cartaFrete ? { cartaFrete: Number(data.cartaFrete) } : {}),
+      ...(data.adiantamento ? { adiantamento: Number(data.adiantamento) } : {}),
+      ...(data.pesoCarga ? { pesoCarga: Number(data.pesoCarga) } : {}),
+      ...(data.notes ? { notes: data.notes } : {}),
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['trip', id] }); setShowEditForm(false); setEditError('') },
+    onError: (e: any) => setEditError(e.message),
+  })
+
+  function startEdit(t: any) {
+    setEditForm({
+      originAddress: t.originAddress ?? '',
+      destinationAddress: t.destinationAddress ?? '',
+      driverId: t.driverId ?? '',
+      vehicleId: t.vehicleId ?? '',
+      kmStart: String(t.kmStart ?? ''),
+      cartaFrete: t.cartaFrete ? String(t.cartaFrete) : '',
+      adiantamento: t.adiantamento ? String(t.adiantamento) : '',
+      pesoCarga: t.pesoCarga ? String(t.pesoCarga) : '',
+      notes: t.notes ?? '',
+    })
+    setShowEditForm(true)
+    setEditError('')
+  }
 
   const addCost = useMutation({
     mutationFn: (data: typeof costForm) =>
@@ -68,10 +106,82 @@ export default function TripDetailPage() {
       <button onClick={() => navigate('/trips')} className="text-slate-400 hover:text-slate-200 text-sm mb-4">← Voltar</button>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-slate-100">Detalhe da Viagem</h1>
-        {(t.status === 'draft' || t.status === 'active') && (
-          <button onClick={cancelTrip} className="text-red-400 hover:text-red-300 text-sm">Cancelar</button>
-        )}
+        <div className="flex items-center gap-3">
+          {isAdmin && t.status === 'draft' && (
+            <button onClick={() => showEditForm ? setShowEditForm(false) : startEdit(t)}
+              className="text-sm text-slate-400 hover:text-slate-200">
+              {showEditForm ? 'Fechar edição' : 'Editar'}
+            </button>
+          )}
+          {(t.status === 'draft' || t.status === 'active') && (
+            <button onClick={cancelTrip} className="text-red-400 hover:text-red-300 text-sm">Cancelar</button>
+          )}
+        </div>
       </div>
+
+      {showEditForm && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
+          <h2 className="text-sm font-semibold text-slate-300 mb-4">Editar Viagem</h2>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Motorista</label>
+                <select value={editForm.driverId} onChange={e => setEditForm(f => ({ ...f, driverId: e.target.value }))} className={inputCls}>
+                  <option value="">Selecionar...</option>
+                  {(drivers as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Veículo</label>
+                <select value={editForm.vehicleId} onChange={e => setEditForm(f => ({ ...f, vehicleId: e.target.value }))} className={inputCls}>
+                  <option value="">Selecionar...</option>
+                  {(vehicles as any[]).map((v: any) => <option key={v.id} value={v.id}>{v.plate} — {v.model}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Origem</label>
+              <input value={editForm.originAddress} onChange={e => setEditForm(f => ({ ...f, originAddress: e.target.value }))} className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Destino</label>
+              <input value={editForm.destinationAddress} onChange={e => setEditForm(f => ({ ...f, destinationAddress: e.target.value }))} className={inputCls} />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">KM Inicial</label>
+                <input type="number" value={editForm.kmStart} onChange={e => setEditForm(f => ({ ...f, kmStart: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Carta de Frete (R$)</label>
+                <input type="number" step="0.01" value={editForm.cartaFrete} onChange={e => setEditForm(f => ({ ...f, cartaFrete: e.target.value }))} className={inputCls} placeholder="0,00" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Adiantamento (R$)</label>
+                <input type="number" step="0.01" value={editForm.adiantamento} onChange={e => setEditForm(f => ({ ...f, adiantamento: e.target.value }))} className={inputCls} placeholder="0,00" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Peso da Carga (ton)</label>
+                <input type="number" step="0.001" value={editForm.pesoCarga} onChange={e => setEditForm(f => ({ ...f, pesoCarga: e.target.value }))} className={inputCls} placeholder="0,000" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Observações</label>
+                <input value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} className={inputCls} placeholder="Opcional" />
+              </div>
+            </div>
+            {editError && <p className="text-red-400 text-xs">{editError}</p>}
+            <div className="flex gap-2">
+              <button onClick={() => updateTrip.mutate(editForm)} disabled={updateTrip.isPending}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2">
+                {updateTrip.isPending ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+              <button onClick={() => setShowEditForm(false)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-lg px-4 py-2">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">

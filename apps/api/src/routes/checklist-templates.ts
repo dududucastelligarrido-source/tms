@@ -38,6 +38,38 @@ export const checklistTemplateRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(template)
   })
 
+  fastify.patch('/checklist-templates/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    const UpdateSchema = z.object({
+      name: z.string().min(1).optional(),
+      type: z.enum(['departure', 'arrival', 'driver_change']).optional(),
+      items: z.array(z.object({
+        description: z.string().min(1),
+        isRequired: z.boolean().default(true),
+        orderIndex: z.number().int().min(0),
+      })).min(1).optional(),
+    })
+    let data: z.infer<typeof UpdateSchema>
+    try { data = UpdateSchema.parse(request.body) }
+    catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
+
+    const { items, ...templateData } = data
+
+    if (items) {
+      await prisma.checklistTemplateItem.deleteMany({ where: { templateId: id } })
+      await prisma.checklistTemplateItem.createMany({
+        data: items.map(item => ({ ...item, templateId: id })),
+      })
+    }
+
+    const updated = await prisma.checklistTemplate.update({
+      where: { id },
+      data: templateData,
+      include: { items: { orderBy: { orderIndex: 'asc' } } },
+    })
+    return updated
+  })
+
   fastify.delete('/checklist-templates/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
     await prisma.checklistTemplate.update({ where: { id }, data: { isActive: false } })

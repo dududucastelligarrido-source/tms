@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { clearTokens, getUser } from '../lib/auth.js'
 import {
-  LayoutDashboard, Route, Truck, User, Users, BarChart2, Fuel,
+  LayoutDashboard, Route, Truck, User, Users, BarChart2, Fuel, Wrench, ClipboardList,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -28,7 +28,9 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/users',   label: 'Usuários',   icon: Users    },
       { to: '/reports', label: 'Relatórios', icon: BarChart2 },
-      { to: '/fuel',    label: 'Combustível', icon: Fuel    },
+      { to: '/fuel',        label: 'Combustível', icon: Fuel    },
+      { to: '/maintenance',         label: 'Manutenções', icon: Wrench        },
+      { to: '/checklist-templates', label: 'Checklists',  icon: ClipboardList },
     ],
   },
 ]
