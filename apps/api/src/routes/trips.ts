@@ -62,7 +62,7 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
     const [data, total] = await Promise.all([
       prisma.trip.findMany({
         where,
-        include: { driver: true, vehicle: true },
+        include: { driver: true, vehicle: true, _count: { select: { costs: true } }, costs: { select: { amount: true } } },
         orderBy: { createdAt: 'desc' },
         skip,
         take: query.limit,

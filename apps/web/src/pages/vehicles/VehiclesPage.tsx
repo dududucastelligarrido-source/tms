@@ -5,6 +5,7 @@ import { useVehicles } from '../../hooks/useVehicles.js'
 import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
+import { useConfirm } from '../../components/ConfirmModal.js'
 
 const TYPE_LABELS: Record<string, string> = { caminhao: 'Caminhão', van: 'Van', utilitario: 'Utilitário', carreta: 'Carreta', outro: 'Outro' }
 const emptyForm = { plate: '', brand: '', model: '', year: new Date().getFullYear(), currentKm: 0, type: 'caminhao' }
@@ -24,6 +25,7 @@ export default function VehiclesPage() {
   const [editError, setEditError] = useState('')
 
   const toast = useToast()
+  const confirm = useConfirm()
   const inputClass = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500'
 
   const create = useMutation({
@@ -155,7 +157,7 @@ export default function VehiclesPage() {
                           className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1.5 rounded">
                           Editar
                         </button>
-                        <button onClick={() => confirm('Excluir este veículo?') && remove.mutate(v.id)}
+                        <button onClick={async () => { if (await confirm({ title: 'Excluir veículo', message: `Excluir ${v.plate}? Esta ação não pode ser desfeita.` })) remove.mutate(v.id) }}
                           className="text-xs text-red-400 hover:text-red-300 px-2 py-1.5 rounded">
                           Excluir
                         </button>

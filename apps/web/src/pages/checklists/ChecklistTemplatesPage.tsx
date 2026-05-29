@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
+import { useConfirm } from '../../components/ConfirmModal.js'
 
 const TYPE_LABELS: Record<string, string> = {
   departure: 'Saída', arrival: 'Chegada', driver_change: 'Troca de Motorista',
@@ -29,6 +30,7 @@ export default function ChecklistTemplatesPage() {
   const [editError, setEditError] = useState('')
 
   const toast = useToast()
+  const confirm = useConfirm()
   const inputCls = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500'
 
   const create = useMutation({
@@ -198,7 +200,7 @@ export default function ChecklistTemplatesPage() {
                     {isAdmin && (
                       <div className="flex items-center gap-2">
                         <button onClick={() => startEdit(t)} className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded">Editar</button>
-                        <button onClick={() => confirm('Excluir este template?') && remove.mutate(t.id)}
+                        <button onClick={async () => { if (await confirm({ title: 'Excluir template', message: `Excluir "${t.name}"? Esta ação não pode ser desfeita.` })) remove.mutate(t.id) }}
                           className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded">Excluir</button>
                       </div>
                     )}

@@ -4,6 +4,7 @@ import { useVehicles } from '../../hooks/useVehicles.js'
 import { useMaintenance, useCreateMaintenance, useUpdateMaintenance, useDeleteMaintenance } from '../../hooks/useMaintenance.js'
 import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
+import { useConfirm } from '../../components/ConfirmModal.js'
 
 const TYPE_LABELS: Record<string, string> = {
   troca_oleo: 'Troca de Óleo',
@@ -41,6 +42,7 @@ export default function MaintenancePage() {
 
   const vehicle = (vehicles as any[]).find((v: any) => v.id === vehicleId)
   const toast = useToast()
+  const confirm = useConfirm()
 
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -306,7 +308,7 @@ export default function MaintenancePage() {
                   {isAdmin && (
                     <div className="flex items-center gap-3 ml-4 shrink-0">
                       <button onClick={() => startEdit(r)} className="text-slate-400 hover:text-slate-200 text-xs">Editar</button>
-                      <button onClick={() => confirm('Excluir registro?') && remove.mutate(r.id, { onSuccess: () => toast.success('Registro excluído.'), onError: (e: any) => toast.error(e.message) })}
+                      <button onClick={async () => { if (await confirm({ title: 'Excluir manutenção', message: 'Excluir este registro? Esta ação não pode ser desfeita.' })) remove.mutate(r.id, { onSuccess: () => toast.success('Registro excluído.'), onError: (e: any) => toast.error(e.message) }) }}
                         className="text-red-400 hover:text-red-300 text-xs">
                         Excluir
                       </button>

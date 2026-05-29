@@ -4,6 +4,7 @@ import { useVehicles } from '../../hooks/useVehicles.js'
 import { useDrivers } from '../../hooks/useDrivers.js'
 import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
+import { useConfirm } from '../../components/ConfirmModal.js'
 
 const EMPTY_FORM = {
   vehicleId: '', driverId: '', tripId: '',
@@ -38,6 +39,7 @@ export default function FuelPage() {
   const deleteLog = useDeleteFuelLog()
 
   const toast = useToast()
+  const confirm = useConfirm()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
@@ -104,7 +106,7 @@ export default function FuelPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Excluir este registro de combustível?')) return
+    if (!await confirm({ title: 'Excluir abastecimento', message: 'Excluir este registro de combustível? Esta ação não pode ser desfeita.' })) return
     try {
       await deleteLog.mutateAsync(id)
       toast.success('Registro excluído.')

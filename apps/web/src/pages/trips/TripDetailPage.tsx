@@ -8,6 +8,7 @@ import { useQueryClient, useMutation } from '@tanstack/react-query'
 import FreightCalculator from '../../components/FreightCalculator.js'
 import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
+import { useConfirm } from '../../components/ConfirmModal.js'
 
 const COST_CATEGORIES: Record<string, string> = {
   fuel: 'Combustível', toll: 'Pedágio', meal: 'Alimentação', maintenance: 'Manutenção', other: 'Outro',
@@ -25,6 +26,7 @@ export default function TripDetailPage() {
   const { data: vehicles = [] } = useVehicles()
   const { data: drivers = [] } = useDrivers()
   const toast = useToast()
+  const confirm = useConfirm()
   const [showCostForm, setShowCostForm] = useState(false)
   const [costForm, setCostForm] = useState(emptyCostForm)
   const [costError, setCostError] = useState('')
@@ -34,6 +36,22 @@ export default function TripDetailPage() {
     kmStart: '', cartaFrete: '', adiantamento: '', pesoCarga: '', notes: '',
   })
   const [editError, setEditError] = useState('')
+  const [showDriverChange, setShowDriverChange] = useState(false)
+  const [driverChangeForm, setDriverChangeForm] = useState({ newDriverId: '', kmCurrent: '' })
+  const [driverChangeError, setDriverChangeError] = useState('')
+
+  const changeDriver = useMutation({
+    mutationFn: (data: typeof driverChangeForm) =>
+      api.patch(`/trips/${id}/change-driver`, { newDriverId: data.newDriverId, kmCurrent: Number(data.kmCurrent) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trip', id] })
+      setShowDriverChange(false)
+      setDriverChangeForm({ newDriverId: '', kmCurrent: '' })
+      setDriverChangeError('')
+      toast.success('Motorista trocado!')
+    },
+    onError: (e: any) => { setDriverChangeError(e.message); toast.error(e.message) },
+  })
 
   const updateTrip = useMutation({
     mutationFn: (data: typeof editForm) => api.patch(`/trips/${id}`, {
@@ -92,7 +110,7 @@ export default function TripDetailPage() {
   })
 
   async function cancelTrip() {
-    if (!confirm('Cancelar esta viagem?')) return
+    if (!await confirm({ title: 'Cancelar viagem', message: 'Cancelar esta viagem? Esta ação não pode ser desfeita.', confirmLabel: 'Cancelar viagem' })) return
     try {
       await api.patch(`/trips/${id}/cancel`)
       qc.invalidateQueries({ queryKey: ['trips'] })
@@ -122,11 +140,63 @@ export default function TripDetailPage() {
               {showEditForm ? 'Fechar edição' : 'Editar'}
             </button>
           )}
+          {isAdmin && t.status === 'active' && (
+            <button onClick={() => setShowDriverChange(s => !s)}
+              className="text-sm text-slate-400 hover:text-slate-200">
+              {showDriverChange ? 'Fechar' : 'Trocar Motorista'}
+            </button>
+          )}
           {(t.status === 'draft' || t.status === 'active') && (
             <button onClick={cancelTrip} className="text-red-400 hover:text-red-300 text-sm">Cancelar</button>
           )}
         </div>
       </div>
+
+      {showDriverChange && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
+          <h2 className="text-sm font-semibold text-slate-300 mb-4">Trocar Motorista</h2>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Novo Motorista</label>
+                <select
+                  value={driverChangeForm.newDriverId}
+                  onChange={e => setDriverChangeForm(f => ({ ...f, newDriverId: e.target.value }))}
+                  className={inputCls}
+                >
+                  <option value="">Selecionar...</option>
+                  {(drivers as any[]).filter((d: any) => d.id !== t.driverId).map((d: any) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">KM Atual do Veículo</label>
+                <input
+                  type="number" min={t.kmStart}
+                  value={driverChangeForm.kmCurrent}
+                  onChange={e => setDriverChangeForm(f => ({ ...f, kmCurrent: e.target.value }))}
+                  placeholder={String(t.kmStart)}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+            {driverChangeError && <p className="text-red-400 text-xs">{driverChangeError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={() => changeDriver.mutate(driverChangeForm)}
+                disabled={changeDriver.isPending || !driverChangeForm.newDriverId || !driverChangeForm.kmCurrent}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2"
+              >
+                {changeDriver.isPending ? 'Salvando...' : 'Confirmar Troca'}
+              </button>
+              <button onClick={() => setShowDriverChange(false)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-lg px-4 py-2">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showEditForm && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
@@ -288,7 +358,7 @@ export default function TripDetailPage() {
                   <div className="flex items-center gap-3">
                     <span className="text-green-400 text-sm font-medium">R$ {Number(cost.amount).toFixed(2)}</span>
                     {isAdmin && (
-                      <button onClick={() => confirm('Excluir este custo?') && deleteCost.mutate(cost.id)}
+                      <button onClick={async () => { if (await confirm({ title: 'Excluir custo', message: 'Excluir este custo? Esta ação não pode ser desfeita.' })) deleteCost.mutate(cost.id) }}
                         className="text-red-400 hover:text-red-300 text-xs">
                         Excluir
                       </button>

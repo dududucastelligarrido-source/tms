@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTrips } from '../../hooks/useTrips.js'
+import { useVehicles } from '../../hooks/useVehicles.js'
 import { getUser } from '../../lib/auth.js'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -37,8 +38,10 @@ export default function TripsPage() {
   const [searchInput, setSearchInput] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [vehicleId, setVehicleId] = useState('')
   const [page, setPage] = useState(1)
   const user = getUser()
+  const { data: vehicles = [] } = useVehicles()
 
   const now = new Date()
 
@@ -48,6 +51,7 @@ export default function TripsPage() {
     limit: LIMIT,
     ...(startDate ? { startDate } : {}),
     ...(endDate ? { endDate } : {}),
+    ...(vehicleId ? { vehicleId } : {}),
   })
 
   const trips = result?.data ?? []
@@ -103,8 +107,16 @@ export default function TripsPage() {
         ))}
       </div>
 
-      {/* Filtros de data */}
+      {/* Filtros */}
       <div className="flex flex-wrap gap-2 mb-3">
+        <select
+          value={vehicleId}
+          onChange={e => { setVehicleId(e.target.value); setPage(1) }}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 text-sm focus:outline-none focus:border-blue-500"
+        >
+          <option value="">Todos os veículos</option>
+          {(vehicles as any[]).map((v: any) => <option key={v.id} value={v.id}>{v.plate} — {v.model}</option>)}
+        </select>
         <input
           type="date" value={startDate}
           onChange={e => { setStartDate(e.target.value); setPage(1) }}
@@ -117,10 +129,10 @@ export default function TripsPage() {
           className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 text-sm focus:outline-none focus:border-blue-500"
           title="Data fim"
         />
-        {(startDate || endDate) && (
-          <button onClick={() => { setStartDate(''); setEndDate(''); setPage(1) }}
+        {(vehicleId || startDate || endDate) && (
+          <button onClick={() => { setVehicleId(''); setStartDate(''); setEndDate(''); setPage(1) }}
             className="text-xs text-slate-400 hover:text-slate-200 px-3 py-2 border border-slate-700 rounded-lg">
-            Limpar datas
+            Limpar filtros
           </button>
         )}
       </div>
@@ -154,6 +166,7 @@ export default function TripsPage() {
             {filtered.map((trip: any) => {
               const date = tripDate(trip)
               const kmTotal = trip.kmEnd != null ? trip.kmEnd - trip.kmStart : null
+              const totalCosts = (trip.costs ?? []).reduce((s: number, c: any) => s + Number(c.amount), 0)
               return (
                 <Link
                   key={trip.id}
@@ -178,6 +191,12 @@ export default function TripsPage() {
                         <>
                           <span>·</span>
                           <span className="text-yellow-400">R$ {Number(trip.cartaFrete).toFixed(2)}</span>
+                        </>
+                      )}
+                      {totalCosts > 0 && (
+                        <>
+                          <span>·</span>
+                          <span className="text-red-400">custos R$ {totalCosts.toFixed(2)}</span>
                         </>
                       )}
                     </div>
