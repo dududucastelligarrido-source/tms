@@ -191,6 +191,58 @@ export default function ReportsPage() {
               </table>
             </div>
           </div>
+
+          {/* Performance por Motorista */}
+          {data.trips.length > 0 && (() => {
+            const byDriver: Record<string, { name: string; total: number; completed: number; cancelled: number; km: number; costs: number }> = {}
+            for (const t of data.trips) {
+              if (!byDriver[t.driver]) byDriver[t.driver] = { name: t.driver, total: 0, completed: 0, cancelled: 0, km: 0, costs: 0 }
+              byDriver[t.driver].total++
+              if (t.status === 'completed') byDriver[t.driver].completed++
+              if (t.status === 'cancelled') byDriver[t.driver].cancelled++
+              byDriver[t.driver].km += t.kmTotal ?? 0
+              byDriver[t.driver].costs += t.totalCosts ?? 0
+            }
+            const rows = Object.values(byDriver).sort((a, b) => b.km - a.km)
+            return (
+              <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+                <div className="p-5 border-b border-slate-800">
+                  <h2 className="text-sm font-semibold text-slate-300">Performance por Motorista</h2>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-500 text-xs uppercase">
+                      <th className="text-left px-4 py-3">Motorista</th>
+                      <th className="text-right px-4 py-3">Viagens</th>
+                      <th className="text-right px-4 py-3">Concluídas</th>
+                      <th className="text-right px-4 py-3">Canceladas</th>
+                      <th className="text-right px-4 py-3">Taxa</th>
+                      <th className="text-right px-4 py-3">KM Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(r => {
+                      const taxa = r.total > 0 ? Math.round((r.completed / r.total) * 100) : 0
+                      return (
+                        <tr key={r.name} className="border-b border-slate-800 last:border-0 hover:bg-slate-800/40">
+                          <td className="px-4 py-3 text-slate-100 font-medium">{r.name}</td>
+                          <td className="px-4 py-3 text-right text-slate-300">{r.total}</td>
+                          <td className="px-4 py-3 text-right text-green-400">{r.completed}</td>
+                          <td className="px-4 py-3 text-right text-red-400">{r.cancelled}</td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`font-semibold ${taxa >= 80 ? 'text-green-400' : taxa >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                              {taxa}%
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-yellow-400 font-medium">{r.km.toLocaleString('pt-BR')} km</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })()}
         </div>
       )}
     </div>

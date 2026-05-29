@@ -69,7 +69,7 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
     const trip = await prisma.trip.findFirstOrThrow({
       where: { id },
-      include: { driver: true, vehicle: true, costs: true, checklists: { include: { responses: true } } },
+      include: { driver: true, vehicle: true, costs: true, checklists: { include: { responses: true, template: { include: { items: { orderBy: { orderIndex: 'asc' } } } } } } },
     }).catch(() => reply.status(404).send({ error: 'Trip not found' }))
     return trip
   })

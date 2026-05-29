@@ -305,6 +305,53 @@ export default function TripDetailPage() {
             !showCostForm && <p className="text-slate-500 text-sm text-center py-2">Nenhum custo registrado.</p>
           )}
         </div>
+
+        {/* Histórico de Checklists */}
+        {t.checklists?.length > 0 && (
+          <div className="space-y-3">
+            {t.checklists.map((cl: any) => {
+              const total = cl.template?.items?.length ?? 0
+              const passed = cl.responses?.filter((r: any) => r.passed).length ?? 0
+              const failed = cl.responses?.filter((r: any) => !r.passed).length ?? 0
+              const typeLabel: Record<string, string> = { departure: 'Saída', arrival: 'Chegada', driver_change: 'Troca de Motorista' }
+              return (
+                <div key={cl.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <span className="text-slate-100 text-sm font-medium">{cl.template?.name ?? 'Checklist'}</span>
+                      <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">{typeLabel[cl.type] ?? cl.type}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-green-400">{passed} ✓</span>
+                      {failed > 0 && <span className="text-red-400">{failed} ✗</span>}
+                      <span className="text-slate-500">{cl.responses?.length ?? 0}/{total}</span>
+                    </div>
+                  </div>
+                  {cl.template?.items?.length > 0 && (
+                    <div className="px-4 py-2 space-y-1">
+                      {cl.template.items.map((item: any) => {
+                        const resp = cl.responses?.find((r: any) => r.itemId === item.id)
+                        return (
+                          <div key={item.id} className="flex items-center gap-2 py-1 text-xs">
+                            {resp ? (
+                              <span className={`w-4 h-4 rounded flex items-center justify-center font-bold shrink-0 ${resp.passed ? 'bg-green-900 text-green-400' : 'bg-red-900 text-red-400'}`}>
+                                {resp.passed ? '✓' : '✗'}
+                              </span>
+                            ) : (
+                              <span className="w-4 h-4 rounded border border-slate-700 shrink-0" />
+                            )}
+                            <span className={resp ? (resp.passed ? 'text-slate-300' : 'text-red-300') : 'text-slate-500'}>{item.description}</span>
+                            {item.isRequired && !resp && <span className="text-red-500">*</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )
