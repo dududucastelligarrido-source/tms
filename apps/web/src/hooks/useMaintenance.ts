@@ -17,6 +17,15 @@ export function useCreateMaintenance(vehicleId: string) {
   })
 }
 
+export function useUpdateMaintenance(vehicleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: unknown }) =>
+      api.patch(`/vehicles/${vehicleId}/maintenance/${id}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['maintenance', vehicleId] }),
+  })
+}
+
 export function useDeleteMaintenance(vehicleId: string) {
   const qc = useQueryClient()
   return useMutation({

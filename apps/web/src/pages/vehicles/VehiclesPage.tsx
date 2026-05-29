@@ -12,10 +12,14 @@ export default function VehiclesPage() {
   const navigate = useNavigate()
   const { data: vehicles = [], isLoading } = useVehicles()
   const user = getUser()
+  const isAdmin = user?.role === 'admin'
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState(emptyForm)
+  const [editError, setEditError] = useState('')
 
   const inputClass = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500'
 
@@ -25,12 +29,60 @@ export default function VehiclesPage() {
     onError: (e: any) => setError(e.message),
   })
 
+  const update = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: typeof editForm }) => api.patch(`/vehicles/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vehicles'] }); setEditingId(null); setEditError('') },
+    onError: (e: any) => setEditError(e.message),
+  })
+
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete(`/vehicles/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['vehicles'] }),
+  })
+
+  function startEdit(v: any) {
+    setEditingId(v.id)
+    setEditForm({ plate: v.plate, brand: v.brand, model: v.model, year: v.year, currentKm: v.currentKm, type: v.type })
+    setEditError('')
+  }
+
+  const FormFields = ({ f, set }: { f: typeof emptyForm; set: (fn: (prev: typeof emptyForm) => typeof emptyForm) => void }) => (
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <label className="block text-xs text-slate-400 mb-1">Placa</label>
+        <input value={f.plate} onChange={e => set(p => ({ ...p, plate: e.target.value }))} className={inputClass} placeholder="ABC-1234" />
+      </div>
+      <div>
+        <label className="block text-xs text-slate-400 mb-1">Marca</label>
+        <input value={f.brand} onChange={e => set(p => ({ ...p, brand: e.target.value }))} className={inputClass} placeholder="Volvo" />
+      </div>
+      <div>
+        <label className="block text-xs text-slate-400 mb-1">Modelo</label>
+        <input value={f.model} onChange={e => set(p => ({ ...p, model: e.target.value }))} className={inputClass} placeholder="FH 460" />
+      </div>
+      <div>
+        <label className="block text-xs text-slate-400 mb-1">Tipo</label>
+        <select value={f.type} onChange={e => set(p => ({ ...p, type: e.target.value }))} className={inputClass}>
+          {Object.entries(TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs text-slate-400 mb-1">Ano</label>
+        <input type="number" value={f.year} onChange={e => set(p => ({ ...p, year: Number(e.target.value) }))} className={inputClass} />
+      </div>
+      <div>
+        <label className="block text-xs text-slate-400 mb-1">KM Atual</label>
+        <input type="number" value={f.currentKm} onChange={e => set(p => ({ ...p, currentKm: Number(e.target.value) }))} className={inputClass} />
+      </div>
+    </div>
+  )
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-slate-100">Veículos</h1>
-        {user?.role === 'admin' && (
-          <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+        {isAdmin && (
+          <button onClick={() => { setShowForm(true); setEditingId(null) }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
             + Novo Veículo
           </button>
         )}
@@ -39,34 +91,7 @@ export default function VehiclesPage() {
       {showForm && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
           <h2 className="text-sm font-semibold text-slate-300 mb-4">Novo Veículo</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Placa</label>
-              <input value={form.plate} onChange={e => setForm(f => ({ ...f, plate: e.target.value }))} className={inputClass} placeholder="ABC-1234" />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Marca</label>
-              <input value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))} className={inputClass} placeholder="Volvo" />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Modelo</label>
-              <input value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} className={inputClass} placeholder="FH 460" />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Tipo</label>
-              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className={inputClass}>
-                {Object.entries(TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Ano</label>
-              <input type="number" value={form.year} onChange={e => setForm(f => ({ ...f, year: Number(e.target.value) }))} className={inputClass} />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">KM Atual</label>
-              <input type="number" value={form.currentKm} onChange={e => setForm(f => ({ ...f, currentKm: Number(e.target.value) }))} className={inputClass} />
-            </div>
-          </div>
+          <FormFields f={form} set={setForm} />
           {error && <p className="text-red-400 text-xs mt-3">{error}</p>}
           <div className="flex gap-3 mt-4">
             <button onClick={() => create.mutate(form)} disabled={create.isPending}
@@ -83,15 +108,45 @@ export default function VehiclesPage() {
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
           {(vehicles as any[]).map((v: any) => (
-            <div key={v.id} className="flex items-center justify-between p-4 border-b border-slate-800 last:border-0">
-              <div>
-                <div className="text-slate-100 font-medium text-sm">{v.plate} — {v.brand} {v.model}</div>
-                <div className="text-slate-400 text-xs mt-0.5">{v.year} · {TYPE_LABELS[v.type] ?? v.type} · KM {v.currentKm.toLocaleString('pt-BR')}</div>
-              </div>
-              <button onClick={() => navigate(`/vehicles/${v.id}/maintenance`)}
-                className="text-xs text-blue-400 hover:text-blue-300 px-3 py-1.5 border border-slate-700 rounded-lg transition-colors">
-                Manutenções
-              </button>
+            <div key={v.id} className="border-b border-slate-800 last:border-0">
+              {editingId === v.id ? (
+                <div className="p-4">
+                  <FormFields f={editForm} set={setEditForm} />
+                  {editError && <p className="text-red-400 text-xs mt-3">{editError}</p>}
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={() => update.mutate({ id: v.id, data: editForm })} disabled={update.isPending}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50">
+                      {update.isPending ? 'Salvando...' : 'Salvar'}
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs">Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-4">
+                  <div>
+                    <div className="text-slate-100 font-medium text-sm">{v.plate} — {v.brand} {v.model}</div>
+                    <div className="text-slate-400 text-xs mt-0.5">{v.year} · {TYPE_LABELS[v.type] ?? v.type} · KM {v.currentKm.toLocaleString('pt-BR')}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => navigate(`/vehicles/${v.id}/maintenance`)}
+                      className="text-xs text-blue-400 hover:text-blue-300 px-3 py-1.5 border border-slate-700 rounded-lg transition-colors">
+                      Manutenções
+                    </button>
+                    {isAdmin && (
+                      <>
+                        <button onClick={() => startEdit(v)}
+                          className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1.5 rounded">
+                          Editar
+                        </button>
+                        <button onClick={() => confirm('Excluir este veículo?') && remove.mutate(v.id)}
+                          className="text-xs text-red-400 hover:text-red-300 px-2 py-1.5 rounded">
+                          Excluir
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
           {(vehicles as any[]).length === 0 && <div className="p-8 text-center text-slate-500 text-sm">Nenhum veículo cadastrado.</div>}

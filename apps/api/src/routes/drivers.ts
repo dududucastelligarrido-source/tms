@@ -50,4 +50,12 @@ export const driverRoutes: FastifyPluginAsync = async (fastify) => {
     }).catch(() => reply.status(404).send({ error: 'Driver not found' }))
     return driver
   })
+
+  fastify.delete('/drivers/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    await prisma.driver.update({ where: { id }, data: { isActive: false } }).catch(() =>
+      reply.status(404).send({ error: 'Driver not found' })
+    )
+    return reply.status(204).send()
+  })
 }

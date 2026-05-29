@@ -37,6 +37,11 @@ export default function DriversPage() {
     onError: (e: any) => setEditError(e.message),
   })
 
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete(`/drivers/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['drivers'] }),
+  })
+
   function startEdit(d: any) {
     setEditingId(d.id)
     setEditForm({ name: d.name, cpf: d.cpf, cnhNumber: d.cnhNumber, cnhCategory: d.cnhCategory, cnhExpiresAt: toDateInput(d.cnhExpiresAt) })
@@ -123,7 +128,13 @@ export default function DriversPage() {
                     </div>
                   </div>
                   {user?.role === 'admin' && (
-                    <button onClick={() => startEdit(d)} className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded">Editar</button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => startEdit(d)} className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded">Editar</button>
+                      <button onClick={() => confirm('Excluir este motorista?') && remove.mutate(d.id)}
+                        className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded">
+                        Excluir
+                      </button>
+                    </div>
                   )}
                 </div>
               )}

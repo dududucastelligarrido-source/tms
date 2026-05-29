@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useFuelLogs, useCreateFuelLog, useDeleteFuelLog } from '../../hooks/useFuelLogs.js'
+import { useFuelLogs, useCreateFuelLog, useUpdateFuelLog, useDeleteFuelLog } from '../../hooks/useFuelLogs.js'
 import { useVehicles } from '../../hooks/useVehicles.js'
 import { useDrivers } from '../../hooks/useDrivers.js'
 import { getUser } from '../../lib/auth.js'
@@ -9,6 +9,8 @@ const EMPTY_FORM = {
   loggedAt: '', fuelType: 'diesel' as 'diesel' | 'arla',
   liters: '', pricePerLiter: '', station: '', kmAtFueling: '',
 }
+
+const EMPTY_EDIT = { liters: '', pricePerLiter: '', station: '', kmAtFueling: '', loggedAt: '' }
 
 export default function FuelPage() {
   const user = getUser()
@@ -20,11 +22,47 @@ export default function FuelPage() {
   const { data: vehicles = [] } = useVehicles()
   const { data: drivers = [] } = useDrivers()
   const createLog = useCreateFuelLog()
+  const updateLog = useUpdateFuelLog()
   const deleteLog = useDeleteFuelLog()
 
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState(EMPTY_EDIT)
+  const [editError, setEditError] = useState('')
+
+  function startEdit(log: any) {
+    setEditingId(log.id)
+    setEditForm({
+      liters: String(log.liters),
+      pricePerLiter: String(log.pricePerLiter),
+      station: log.station ?? '',
+      kmAtFueling: String(log.kmAtFueling),
+      loggedAt: new Date(log.loggedAt).toISOString().split('T')[0],
+    })
+    setEditError('')
+  }
+
+  async function handleUpdate() {
+    if (!editingId) return
+    setEditError('')
+    try {
+      await updateLog.mutateAsync({
+        id: editingId,
+        data: {
+          liters: Number(editForm.liters),
+          pricePerLiter: Number(editForm.pricePerLiter),
+          kmAtFueling: Number(editForm.kmAtFueling),
+          loggedAt: new Date(editForm.loggedAt).toISOString(),
+          ...(editForm.station ? { station: editForm.station } : {}),
+        },
+      })
+      setEditingId(null)
+    } catch (e: any) {
+      setEditError(e.message)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -175,26 +213,72 @@ export default function FuelPage() {
             </thead>
             <tbody>
               {(logs as any[]).map((log: any) => (
-                <tr key={log.id} className="border-b border-slate-800 last:border-0 hover:bg-slate-800/40">
-                  <td className="px-4 py-3 text-slate-300">{new Date(log.loggedAt).toLocaleDateString('pt-BR')}</td>
-                  <td className="px-4 py-3 text-slate-300">{log.vehicle?.plate}</td>
-                  <td className="px-4 py-3 text-slate-300">{log.driver?.name}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${log.fuelType === 'diesel' ? 'bg-amber-950 text-amber-400' : 'bg-blue-950 text-blue-400'}`}>
-                      {fuelTypeLabel(log.fuelType)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right text-slate-300">{Number(log.liters).toFixed(3)}</td>
-                  <td className="px-4 py-3 text-right text-slate-300">{Number(log.pricePerLiter).toFixed(4)}</td>
-                  <td className="px-4 py-3 text-right text-green-400 font-medium">R$ {Number(log.totalAmount).toFixed(2)}</td>
-                  <td className="px-4 py-3 text-right text-slate-300">{log.kmPerLiter ? Number(log.kmPerLiter).toFixed(2) : '—'}</td>
-                  <td className="px-4 py-3 text-right text-slate-300">{log.kmAtFueling.toLocaleString('pt-BR')}</td>
-                  {isAdmin && (
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => handleDelete(log.id)} className="text-red-400 hover:text-red-300 text-xs">Excluir</button>
+                <>
+                  <tr key={log.id} className="border-b border-slate-800 last:border-0 hover:bg-slate-800/40">
+                    <td className="px-4 py-3 text-slate-300">{new Date(log.loggedAt).toLocaleDateString('pt-BR')}</td>
+                    <td className="px-4 py-3 text-slate-300">{log.vehicle?.plate}</td>
+                    <td className="px-4 py-3 text-slate-300">{log.driver?.name}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${log.fuelType === 'diesel' ? 'bg-amber-950 text-amber-400' : 'bg-blue-950 text-blue-400'}`}>
+                        {fuelTypeLabel(log.fuelType)}
+                      </span>
                     </td>
+                    <td className="px-4 py-3 text-right text-slate-300">{Number(log.liters).toFixed(3)}</td>
+                    <td className="px-4 py-3 text-right text-slate-300">{Number(log.pricePerLiter).toFixed(4)}</td>
+                    <td className="px-4 py-3 text-right text-green-400 font-medium">R$ {Number(log.totalAmount).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right text-slate-300">{log.kmPerLiter ? Number(log.kmPerLiter).toFixed(2) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-slate-300">{log.kmAtFueling.toLocaleString('pt-BR')}</td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <button onClick={() => editingId === log.id ? setEditingId(null) : startEdit(log)}
+                            className="text-slate-400 hover:text-slate-200 text-xs">
+                            {editingId === log.id ? 'Fechar' : 'Editar'}
+                          </button>
+                          <button onClick={() => handleDelete(log.id)} className="text-red-400 hover:text-red-300 text-xs">Excluir</button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                  {editingId === log.id && (
+                    <tr key={`edit-${log.id}`} className="bg-slate-800/60 border-b border-slate-700">
+                      <td colSpan={isAdmin ? 10 : 9} className="px-4 py-3">
+                        {editError && <p className="text-red-400 text-xs mb-2">{editError}</p>}
+                        <div className="flex flex-wrap gap-3 items-end">
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Data</label>
+                            <input type="date" value={editForm.loggedAt} onChange={e => setEditForm(f => ({ ...f, loggedAt: e.target.value }))}
+                              className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-slate-100 w-32" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Litros</label>
+                            <input type="number" step="0.001" value={editForm.liters} onChange={e => setEditForm(f => ({ ...f, liters: e.target.value }))}
+                              className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-slate-100 w-24" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">R$/L</label>
+                            <input type="number" step="0.0001" value={editForm.pricePerLiter} onChange={e => setEditForm(f => ({ ...f, pricePerLiter: e.target.value }))}
+                              className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-slate-100 w-24" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">KM</label>
+                            <input type="number" value={editForm.kmAtFueling} onChange={e => setEditForm(f => ({ ...f, kmAtFueling: e.target.value }))}
+                              className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-slate-100 w-28" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Posto</label>
+                            <input type="text" value={editForm.station} onChange={e => setEditForm(f => ({ ...f, station: e.target.value }))}
+                              className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-slate-100 w-36" />
+                          </div>
+                          <button onClick={handleUpdate} disabled={updateLog.isPending}
+                            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium rounded px-3 py-1.5">
+                            {updateLog.isPending ? 'Salvando...' : 'Salvar'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                </tr>
+                </>
               ))}
             </tbody>
           </table>

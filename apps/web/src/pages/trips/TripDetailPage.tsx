@@ -1,14 +1,53 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTrip } from '../../hooks/useTrips.js'
 import { api } from '../../lib/api.js'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useMutation } from '@tanstack/react-query'
 import FreightCalculator from '../../components/FreightCalculator.js'
+import { getUser } from '../../lib/auth.js'
+
+const COST_CATEGORIES: Record<string, string> = {
+  fuel: 'Combustível',
+  toll: 'Pedágio',
+  meal: 'Alimentação',
+  maintenance: 'Manutenção',
+  other: 'Outro',
+}
+
+const emptyCostForm = { category: 'toll' as keyof typeof COST_CATEGORIES, description: '', amount: '', paidAt: '' }
 
 export default function TripDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const user = getUser()
+  const isAdmin = user?.role === 'admin'
   const { data: trip, isLoading } = useTrip(id!)
+  const [showCostForm, setShowCostForm] = useState(false)
+  const [costForm, setCostForm] = useState(emptyCostForm)
+  const [costError, setCostError] = useState('')
+
+  const addCost = useMutation({
+    mutationFn: (data: typeof costForm) =>
+      api.post(`/trips/${id}/costs`, {
+        category: data.category,
+        description: data.description,
+        amount: Number(data.amount),
+        paidAt: new Date(data.paidAt).toISOString(),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trip', id] })
+      setCostForm(emptyCostForm)
+      setShowCostForm(false)
+      setCostError('')
+    },
+    onError: (e: any) => setCostError(e.message),
+  })
+
+  const deleteCost = useMutation({
+    mutationFn: (costId: string) => api.delete(`/trips/${id}/costs/${costId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['trip', id] }),
+  })
 
   async function cancelTrip() {
     if (!confirm('Cancelar esta viagem?')) return
@@ -21,6 +60,8 @@ export default function TripDetailPage() {
   if (!trip) return <div className="p-6 text-slate-400">Viagem não encontrada.</div>
 
   const t = trip as any
+  const canAddCost = t.status === 'draft' || t.status === 'active'
+  const inputCls = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500'
 
   return (
     <div className="p-6 max-w-2xl">
@@ -71,21 +112,80 @@ export default function TripDetailPage() {
 
         <FreightCalculator currentCartaFrete={t.cartaFrete ? Number(t.cartaFrete) : undefined} />
 
-        {t.costs?.length > 0 && (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <h2 className="text-sm font-semibold text-slate-400 uppercase mb-3">Custos</h2>
-            {t.costs.map((cost: any) => (
-              <div key={cost.id} className="flex justify-between py-2 border-b border-slate-800 last:border-0">
-                <span className="text-slate-300 text-sm">{cost.description}</span>
-                <span className="text-green-400 text-sm font-medium">R$ {Number(cost.amount).toFixed(2)}</span>
-              </div>
-            ))}
-            <div className="flex justify-between pt-3 font-bold">
-              <span className="text-slate-300 text-sm">Total</span>
-              <span className="text-green-400 text-sm">R$ {t.costs.reduce((s: number, c: any) => s + Number(c.amount), 0).toFixed(2)}</span>
-            </div>
+        {/* Custos */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-slate-400 uppercase">Custos</h2>
+            {canAddCost && (
+              <button onClick={() => setShowCostForm(s => !s)}
+                className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded border border-slate-700">
+                {showCostForm ? 'Fechar' : '+ Adicionar'}
+              </button>
+            )}
           </div>
-        )}
+
+          {showCostForm && (
+            <div className="mb-4 space-y-3 border border-slate-700 rounded-lg p-3">
+              {costError && <p className="text-red-400 text-xs">{costError}</p>}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Categoria</label>
+                  <select value={costForm.category} onChange={e => setCostForm(f => ({ ...f, category: e.target.value as any }))} className={inputCls}>
+                    {Object.entries(COST_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Data</label>
+                  <input type="date" required value={costForm.paidAt} onChange={e => setCostForm(f => ({ ...f, paidAt: e.target.value }))} className={inputCls} />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Descrição</label>
+                <input required value={costForm.description} onChange={e => setCostForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Ex: Pedágio Rodovia Anhanguera"
+                  className={inputCls} />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Valor (R$)</label>
+                <input type="number" step="0.01" min="0.01" required value={costForm.amount}
+                  onChange={e => setCostForm(f => ({ ...f, amount: e.target.value }))}
+                  placeholder="0,00" className={inputCls} />
+              </div>
+              <button onClick={() => addCost.mutate(costForm)} disabled={addCost.isPending || !costForm.description || !costForm.amount || !costForm.paidAt}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg py-2">
+                {addCost.isPending ? 'Salvando...' : 'Salvar Custo'}
+              </button>
+            </div>
+          )}
+
+          {t.costs?.length > 0 ? (
+            <>
+              {t.costs.map((cost: any) => (
+                <div key={cost.id} className="flex items-center justify-between py-2 border-b border-slate-800 last:border-0">
+                  <div>
+                    <span className="text-slate-300 text-sm">{cost.description}</span>
+                    <span className="text-slate-500 text-xs ml-2">{COST_CATEGORIES[cost.category] ?? cost.category}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-green-400 text-sm font-medium">R$ {Number(cost.amount).toFixed(2)}</span>
+                    {isAdmin && (
+                      <button onClick={() => confirm('Excluir este custo?') && deleteCost.mutate(cost.id)}
+                        className="text-red-400 hover:text-red-300 text-xs">
+                        Excluir
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-between pt-3 font-bold">
+                <span className="text-slate-300 text-sm">Total</span>
+                <span className="text-green-400 text-sm">R$ {t.costs.reduce((s: number, c: any) => s + Number(c.amount), 0).toFixed(2)}</span>
+              </div>
+            </>
+          ) : (
+            !showCostForm && <p className="text-slate-500 text-sm text-center py-2">Nenhum custo registrado.</p>
+          )}
+        </div>
       </div>
     </div>
   )

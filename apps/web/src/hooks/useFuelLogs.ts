@@ -22,6 +22,14 @@ export function useCreateFuelLog() {
   })
 }
 
+export function useUpdateFuelLog() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: unknown }) => api.patch(`/fuel-logs/${id}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fuel-logs'] }),
+  })
+}
+
 export function useDeleteFuelLog() {
   const qc = useQueryClient()
   return useMutation({

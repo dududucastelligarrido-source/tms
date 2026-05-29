@@ -91,6 +91,29 @@ export const fuelLogRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(log)
   })
 
+  fastify.patch('/fuel-logs/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    let data: Partial<z.infer<typeof CreateFuelLogSchema>>
+    try { data = CreateFuelLogSchema.partial().parse(request.body) }
+    catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
+
+    const updateData: Record<string, unknown> = { ...data }
+    if (data.loggedAt) updateData.loggedAt = new Date(data.loggedAt)
+    if (data.liters !== undefined || data.pricePerLiter !== undefined) {
+      const existing = await prisma.fuelLog.findUniqueOrThrow({ where: { id } })
+      const liters = data.liters ?? Number(existing.liters)
+      const pricePerLiter = data.pricePerLiter ?? Number(existing.pricePerLiter)
+      updateData.totalAmount = liters * pricePerLiter
+    }
+
+    const log = await prisma.fuelLog.update({
+      where: { id },
+      data: updateData as any,
+      include: { vehicle: true, driver: true },
+    }).catch(() => reply.status(404).send({ error: 'Fuel log not found' }))
+    return log
+  })
+
   fastify.delete('/fuel-logs/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
     await prisma.fuelLog.delete({ where: { id } })
