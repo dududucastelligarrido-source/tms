@@ -8,7 +8,7 @@ interface TripPage {
   pages: number
 }
 
-export function useTrips(filters?: { status?: string; driverId?: string; page?: number; limit?: number }) {
+export function useTrips(filters?: { status?: string; driverId?: string; startDate?: string; endDate?: string; page?: number; limit?: number }) {
   const params = new URLSearchParams(
     Object.fromEntries(
       Object.entries({ ...filters, limit: filters?.limit ?? 50 }).filter(([, v]) => v != null)

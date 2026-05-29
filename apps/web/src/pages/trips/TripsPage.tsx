@@ -35,6 +35,8 @@ export default function TripsPage() {
   const [tab, setTab] = useState('')
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [page, setPage] = useState(1)
   const user = getUser()
 
@@ -44,6 +46,8 @@ export default function TripsPage() {
     status: tab || undefined,
     page,
     limit: LIMIT,
+    ...(startDate ? { startDate } : {}),
+    ...(endDate ? { endDate } : {}),
   })
 
   const trips = result?.data ?? []
@@ -97,6 +101,28 @@ export default function TripsPage() {
             {t.label}
           </button>
         ))}
+      </div>
+
+      {/* Filtros de data */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        <input
+          type="date" value={startDate}
+          onChange={e => { setStartDate(e.target.value); setPage(1) }}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 text-sm focus:outline-none focus:border-blue-500"
+          title="Data início"
+        />
+        <input
+          type="date" value={endDate}
+          onChange={e => { setEndDate(e.target.value); setPage(1) }}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 text-sm focus:outline-none focus:border-blue-500"
+          title="Data fim"
+        />
+        {(startDate || endDate) && (
+          <button onClick={() => { setStartDate(''); setEndDate(''); setPage(1) }}
+            className="text-xs text-slate-400 hover:text-slate-200 px-3 py-2 border border-slate-700 rounded-lg">
+            Limpar datas
+          </button>
+        )}
       </div>
 
       {/* Search */}

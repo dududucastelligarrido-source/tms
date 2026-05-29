@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api.js'
 import { exportPDF, exportExcel } from './reportExport.js'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 const STATUS_LABELS: Record<string, string> = { draft: 'Rascunho', active: 'Em Curso', completed: 'Concluída', cancelled: 'Cancelada' }
 const COST_LABELS: Record<string, string> = { fuel: 'Combustível', toll: 'Pedágio', meal: 'Refeição', maintenance: 'Manutenção', other: 'Outros' }
@@ -153,6 +153,85 @@ export default function ReportsPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Tendência temporal — Viagens por dia */}
+          {data.tripsByDay?.length > 1 && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-slate-300 mb-4">Viagens por Dia</h2>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={data.tripsByDay.map((d: any) => ({ ...d, date: d.date.slice(5) }))} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 8 }} labelStyle={{ color: '#e2e8f0' }} formatter={(v: any) => [v, 'Viagens']} />
+                  <Line dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Combustível */}
+          {data.costs?.fuel && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-slate-300 mb-4">Combustível</h2>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="bg-slate-800 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-amber-400">{Number(data.costs.fuel.totalLiters).toLocaleString('pt-BR', { minimumFractionDigits: 1 })} L</div>
+                  <div className="text-xs text-slate-500 mt-1">Total Abastecido</div>
+                </div>
+                <div className="bg-slate-800 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-red-400">R$ {Number(data.costs.fuel.totalSpend).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                  <div className="text-xs text-slate-500 mt-1">Gasto Total</div>
+                </div>
+                <div className="bg-slate-800 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-green-400">{data.costs.fuel.avgKmL ? `${Number(data.costs.fuel.avgKmL).toFixed(2)} km/L` : '—'}</div>
+                  <div className="text-xs text-slate-500 mt-1">Média Diesel</div>
+                </div>
+              </div>
+              {data.costs.fuel.byVehicle?.length > 0 && (
+                <div className="space-y-2">
+                  {data.costs.fuel.byVehicle.map((v: any) => (
+                    <div key={v.plate} className="flex items-center justify-between text-sm py-1.5 border-b border-slate-800 last:border-0">
+                      <span className="text-slate-400">{v.plate} — {v.model}</span>
+                      <div className="flex gap-6 text-right">
+                        <span className="text-amber-400">{Number(v.liters).toLocaleString('pt-BR', { minimumFractionDigits: 1 })} L</span>
+                        <span className="text-slate-200 font-medium w-28">R$ {Number(v.spend).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Custo por veículo */}
+          {data.costByVehicle?.length > 0 && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+              <div className="p-5 border-b border-slate-800">
+                <h2 className="text-sm font-semibold text-slate-300">Custo por Veículo</h2>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-500 text-xs uppercase">
+                    <th className="text-left px-4 py-3">Veículo</th>
+                    <th className="text-right px-4 py-3">Custos Viagem</th>
+                    <th className="text-right px-4 py-3">Combustível</th>
+                    <th className="text-right px-4 py-3">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.costByVehicle.map((v: any) => (
+                    <tr key={v.plate} className="border-b border-slate-800 last:border-0 hover:bg-slate-800/40">
+                      <td className="px-4 py-3 text-slate-300">{v.plate} — {v.model}</td>
+                      <td className="px-4 py-3 text-right text-slate-400">R$ {Number(v.tripCosts).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-right text-amber-400">R$ {Number(v.fuelCosts).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-right text-slate-100 font-semibold">R$ {Number(v.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 

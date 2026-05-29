@@ -345,10 +345,10 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
     const end = new Date(endDate)
     const tenantId = (request as any).tenantId
 
-    const [trips, costs, kmLogs] = await Promise.all([
+    const [trips, costs, kmLogs, fuelLogs] = await Promise.all([
       prisma.trip.findMany({
         where: { tenantId, createdAt: { gte: start, lte: end } },
-        include: { driver: true, vehicle: true },
+        include: { driver: true, vehicle: true, costs: true },
         orderBy: { createdAt: 'asc' },
       }),
       prisma.tripCost.findMany({
@@ -357,6 +357,11 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       prisma.kmLog.findMany({
         where: { tenantId, loggedAt: { gte: start, lte: end }, eventType: { in: ['start', 'end'] } },
         include: { driver: true, vehicle: true },
+      }),
+      prisma.fuelLog.findMany({
+        where: { tenantId, loggedAt: { gte: start, lte: end } },
+        include: { vehicle: true },
+        orderBy: { loggedAt: 'asc' },
       }),
     ])
 
@@ -386,6 +391,40 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       tripsByDay[day] = (tripsByDay[day] ?? 0) + 1
     }
 
+    // ── Combustível ────────────────────────────────────────────────────────
+    const fuelTotalLiters = fuelLogs.reduce((s, f) => s + Number(f.liters), 0)
+    const fuelTotalSpend = fuelLogs.reduce((s, f) => s + Number(f.totalAmount), 0)
+    const dieselWithKmL = fuelLogs.filter(f => f.fuelType === 'diesel' && f.kmPerLiter)
+    const avgKmL = dieselWithKmL.length > 0
+      ? dieselWithKmL.reduce((s, f) => s + Number(f.kmPerLiter), 0) / dieselWithKmL.length
+      : null
+
+    const fuelByVehicle: Record<string, { plate: string; model: string; liters: number; spend: number }> = {}
+    for (const f of fuelLogs) {
+      const v = f.vehicle as any
+      if (!fuelByVehicle[f.vehicleId]) fuelByVehicle[f.vehicleId] = { plate: v?.plate ?? '-', model: v?.model ?? '-', liters: 0, spend: 0 }
+      fuelByVehicle[f.vehicleId].liters += Number(f.liters)
+      fuelByVehicle[f.vehicleId].spend += Number(f.totalAmount)
+    }
+
+    // ── Custo por veículo (viagem + combustível) ───────────────────────────
+    const costByVehicle: Record<string, { plate: string; model: string; tripCosts: number; fuelCosts: number }> = {}
+    for (const t of trips) {
+      const v = t.vehicle as any
+      if (!v) continue
+      if (!costByVehicle[t.vehicleId!]) costByVehicle[t.vehicleId!] = { plate: v.plate, model: v.model, tripCosts: 0, fuelCosts: 0 }
+      for (const c of (t as any).costs ?? []) {
+        costByVehicle[t.vehicleId!].tripCosts += Number(c.amount)
+      }
+    }
+    for (const f of fuelLogs) {
+      const v = f.vehicle as any
+      if (!costByVehicle[f.vehicleId]) costByVehicle[f.vehicleId] = { plate: v?.plate ?? '-', model: v?.model ?? '-', tripCosts: 0, fuelCosts: 0 }
+      costByVehicle[f.vehicleId].fuelCosts += Number(f.totalAmount)
+    }
+
+    const totalCosts = costs.reduce((s, c) => s + Number(c.amount), 0) + fuelTotalSpend
+
     return {
       period: { startDate, endDate },
       tripsByDay: Object.entries(tripsByDay).map(([date, count]) => ({ date, count })),
@@ -401,11 +440,21 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
         kmEnd: t.kmEnd,
         kmTotal: t.kmEnd != null ? t.kmEnd - t.kmStart : null,
         completedAt: t.completedAt,
+        totalCosts: ((t as any).costs ?? []).reduce((s: number, c: any) => s + Number(c.amount), 0),
       })),
       costs: {
         byCategory: costsByCategory,
-        total: Object.values(costsByCategory).reduce((a, b) => a + b, 0),
+        total: totalCosts,
+        fuel: {
+          totalLiters: Number(fuelTotalLiters.toFixed(3)),
+          totalSpend: Number(fuelTotalSpend.toFixed(2)),
+          avgKmL: avgKmL ? Number(avgKmL.toFixed(2)) : null,
+          byVehicle: Object.values(fuelByVehicle).sort((a, b) => b.spend - a.spend),
+        },
       },
+      costByVehicle: Object.values(costByVehicle)
+        .map(v => ({ ...v, total: Number((v.tripCosts + v.fuelCosts).toFixed(2)), tripCosts: Number(v.tripCosts.toFixed(2)), fuelCosts: Number(v.fuelCosts.toFixed(2)) }))
+        .sort((a, b) => b.total - a.total),
       kmByDriver: Object.values(kmByDriver).sort((a, b) => b.km - a.km),
       kmByVehicle: Object.values(kmByVehicle).sort((a, b) => b.km - a.km),
     }

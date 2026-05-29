@@ -36,6 +36,8 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
       status: z.string().optional(),
       driverId: z.string().uuid().optional(),
       vehicleId: z.string().uuid().optional(),
+      startDate: z.string().optional(),
+      endDate: z.string().optional(),
       page: z.coerce.number().int().min(1).default(1),
       limit: z.coerce.number().int().min(1).max(200).default(50),
     }).parse(request.query)
@@ -44,6 +46,12 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
     if (query.status) where.status = query.status
     if (query.driverId) where.driverId = query.driverId
     if (query.vehicleId) where.vehicleId = query.vehicleId
+    if (query.startDate || query.endDate) {
+      where.createdAt = {
+        ...(query.startDate ? { gte: new Date(query.startDate) } : {}),
+        ...(query.endDate ? { lte: new Date(query.endDate + 'T23:59:59.999Z') } : {}),
+      }
+    }
 
     if (request.user.role === 'motorista') {
       const driver = await getLinkedDriver(request.user.sub)
