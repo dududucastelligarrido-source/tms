@@ -104,8 +104,39 @@ export default function DriversPage() {
       {isLoading ? (
         <div className="text-slate-400 text-sm">Carregando...</div>
       ) : (
+        <>
+        {/* Painel de alertas de CNH */}
+        {(() => {
+          const hoje = Date.now()
+          const vencidas = (drivers as any[]).filter(d => new Date(d.cnhExpiresAt).getTime() < hoje)
+          const proximas = (drivers as any[]).filter(d => {
+            const diff = (new Date(d.cnhExpiresAt).getTime() - hoje) / 86400000
+            return diff >= 0 && diff <= 30
+          })
+          if (vencidas.length === 0 && proximas.length === 0) return null
+          return (
+            <div className="space-y-2 mb-4">
+              {vencidas.length > 0 && (
+                <div className="bg-red-950/40 border border-red-800 rounded-xl px-4 py-3 text-sm text-red-300">
+                  ⚠️ <strong>{vencidas.length}</strong> CNH vencida{vencidas.length > 1 ? 's' : ''}: {vencidas.map((d: any) => d.name).join(', ')}
+                </div>
+              )}
+              {proximas.length > 0 && (
+                <div className="bg-amber-950/40 border border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-300">
+                  ⚠️ <strong>{proximas.length}</strong> CNH vence em até 30 dias: {proximas.map((d: any) => d.name).join(', ')}
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          {(drivers as any[]).map((d: any) => (
+          {(drivers as any[]).map((d: any) => {
+            const hoje = Date.now()
+            const expiryMs = new Date(d.cnhExpiresAt).getTime()
+            const diffDias = Math.ceil((expiryMs - hoje) / 86400000)
+            const cnhStatus = diffDias < 0 ? 'expired' : diffDias <= 30 ? 'warning' : 'ok'
+            return (
             <div key={d.id} className="border-b border-slate-800 last:border-0">
               {editingId === d.id ? (
                 <div className="p-4">
@@ -123,8 +154,16 @@ export default function DriversPage() {
                 <div className="flex items-center justify-between p-4">
                   <div>
                     <div className="text-slate-100 font-medium text-sm">{d.name}</div>
-                    <div className="text-slate-400 text-xs mt-0.5">
-                      CNH {d.cnhNumber} · Cat. {d.cnhCategory} · Válida até {new Date(d.cnhExpiresAt).toLocaleDateString('pt-BR')}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-slate-400 text-xs">
+                        CNH {d.cnhNumber} · Cat. {d.cnhCategory} · Válida até {new Date(d.cnhExpiresAt).toLocaleDateString('pt-BR')}
+                      </span>
+                      {cnhStatus === 'expired' && (
+                        <span className="text-xs font-semibold bg-red-950 text-red-400 px-1.5 py-0.5 rounded-full">Vencida</span>
+                      )}
+                      {cnhStatus === 'warning' && (
+                        <span className="text-xs font-semibold bg-amber-950 text-amber-400 px-1.5 py-0.5 rounded-full">Vence em {diffDias}d</span>
+                      )}
                     </div>
                   </div>
                   {user?.role === 'admin' && (
@@ -139,9 +178,11 @@ export default function DriversPage() {
                 </div>
               )}
             </div>
-          ))}
+          )
+          })}
           {(drivers as any[]).length === 0 && <div className="p-8 text-center text-slate-500 text-sm">Nenhum motorista cadastrado.</div>}
         </div>
+        </>
       )}
     </div>
   )

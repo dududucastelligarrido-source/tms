@@ -16,7 +16,14 @@ export default function FuelPage() {
   const user = getUser()
   const isAdmin = user?.role === 'admin'
   const [page, setPage] = useState(1)
-  const { data: logsResult, isLoading } = useFuelLogs({ page, limit: 50 })
+  const [filterVehicleId, setFilterVehicleId] = useState('')
+  const [filterDriverId, setFilterDriverId] = useState('')
+  const { data: logsResult, isLoading } = useFuelLogs({
+    page,
+    limit: 50,
+    ...(filterVehicleId ? { vehicleId: filterVehicleId } : {}),
+    ...(filterDriverId ? { driverId: filterDriverId } : {}),
+  })
   const logs = logsResult?.data ?? []
   const logsPages = logsResult?.pages ?? 1
   const { data: vehicles = [] } = useVehicles()
@@ -95,12 +102,40 @@ export default function FuelPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-slate-100">Controle de Combustível</h1>
         <button onClick={() => setShowForm(s => !s)}
           className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
           {showForm ? 'Fechar' : '+ Novo Abastecimento'}
         </button>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex gap-3 mb-6">
+        <select
+          value={filterVehicleId}
+          onChange={e => { setFilterVehicleId(e.target.value); setPage(1) }}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+        >
+          <option value="">Todos os veículos</option>
+          {(vehicles as any[]).map((v: any) => <option key={v.id} value={v.id}>{v.plate} — {v.model}</option>)}
+        </select>
+        <select
+          value={filterDriverId}
+          onChange={e => { setFilterDriverId(e.target.value); setPage(1) }}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+        >
+          <option value="">Todos os motoristas</option>
+          {(drivers as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+        {(filterVehicleId || filterDriverId) && (
+          <button
+            onClick={() => { setFilterVehicleId(''); setFilterDriverId(''); setPage(1) }}
+            className="text-xs text-slate-400 hover:text-slate-200 px-3 py-2 border border-slate-700 rounded-lg"
+          >
+            Limpar filtros
+          </button>
+        )}
       </div>
 
       {showForm && (
