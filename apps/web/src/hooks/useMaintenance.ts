@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.js'
 
-export function useMaintenance(vehicleId: string) {
+interface MaintenancePage { data: any[]; total: number; page: number; pages: number }
+
+export function useMaintenance(vehicleId: string, page = 1) {
   return useQuery({
-    queryKey: ['maintenance', vehicleId],
-    queryFn: () => api.get<any[]>(`/vehicles/${vehicleId}/maintenance`),
+    queryKey: ['maintenance', vehicleId, page],
+    queryFn: () => api.get<MaintenancePage>(`/vehicles/${vehicleId}/maintenance?page=${page}&limit=50`),
     enabled: !!vehicleId,
   })
 }

@@ -11,8 +11,10 @@ const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY as string
 export default function NewTripPage() {
   const navigate = useNavigate()
   const createTrip = useCreateTrip()
-  const { data: vehicles = [] } = useVehicles()
-  const { data: drivers = [] } = useDrivers()
+  const { data: vehiclesPage } = useVehicles({ limit: 200 })
+  const { data: driversPage } = useDrivers({ limit: 200 })
+  const vehicles = vehiclesPage?.data ?? []
+  const drivers = driversPage?.data ?? []
 
   const [form, setForm] = useState({
     driverId: '', vehicleId: '',

@@ -18,21 +18,28 @@ export default function KmLogsPage() {
   const [filterVehicleId, setFilterVehicleId] = useState('')
   const [filterDriverId, setFilterDriverId] = useState('')
 
-  const { data: vehicles = [] } = useVehicles()
-  const { data: drivers = [] } = useDrivers()
+  const [page, setPage] = useState(1)
+
+  const { data: vehiclesPage } = useVehicles({ limit: 200 })
+  const { data: driversPage } = useDrivers({ limit: 200 })
+  const vehicles = vehiclesPage?.data ?? []
+  const drivers = driversPage?.data ?? []
 
   const params = new URLSearchParams()
   if (filterVehicleId) params.set('vehicleId', filterVehicleId)
   if (filterDriverId) params.set('driverId', filterDriverId)
-  const qs = params.toString()
+  params.set('page', String(page))
+  params.set('limit', '50')
 
-  const { data: logsRaw = [], isLoading } = useQuery({
-    queryKey: ['km-logs', filterVehicleId, filterDriverId],
-    queryFn: () => api.get<any[]>(`/km-logs${qs ? `?${qs}` : ''}`),
+  const { data: logsResult, isLoading } = useQuery({
+    queryKey: ['km-logs', filterVehicleId, filterDriverId, page],
+    queryFn: () => api.get<any>(`/km-logs?${params.toString()}`),
   })
+  const logsRaw = logsResult?.data ?? []
+  const logsPages = logsResult?.pages ?? 1
   const { sorted: logs, key: sortKey, dir: sortDir, toggle: sortToggle } = useSort(logsRaw as any[], 'loggedAt', 'desc')
 
-  const totalKm = (logs as any[]).reduce((s, l) => s + ((l.kmEnd ?? 0) - (l.kmStart ?? 0)), 0)
+  const totalKm = (logsRaw as any[]).reduce((s: number, l: any) => s + ((l.kmEnd ?? 0) - (l.kmStart ?? 0)), 0)
 
   return (
     <div className="p-6">
@@ -47,7 +54,7 @@ export default function KmLogsPage() {
       <div className="flex flex-wrap gap-3 mb-6">
         <select
           value={filterVehicleId}
-          onChange={e => setFilterVehicleId(e.target.value)}
+          onChange={e => { setFilterVehicleId(e.target.value); setPage(1) }}
           className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
         >
           <option value="">Todos os veículos</option>
@@ -55,7 +62,7 @@ export default function KmLogsPage() {
         </select>
         <select
           value={filterDriverId}
-          onChange={e => setFilterDriverId(e.target.value)}
+          onChange={e => { setFilterDriverId(e.target.value); setPage(1) }}
           className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
         >
           <option value="">Todos os motoristas</option>
@@ -63,7 +70,7 @@ export default function KmLogsPage() {
         </select>
         {(filterVehicleId || filterDriverId) && (
           <button
-            onClick={() => { setFilterVehicleId(''); setFilterDriverId('') }}
+            onClick={() => { setFilterVehicleId(''); setFilterDriverId(''); setPage(1) }}
             className="text-xs text-slate-400 hover:text-slate-200 px-3 py-2 border border-slate-700 rounded-lg"
           >
             Limpar
@@ -76,6 +83,7 @@ export default function KmLogsPage() {
       ) : (logs as any[]).length === 0 ? (
         <p className="text-slate-500 text-sm">Nenhum registro encontrado.</p>
       ) : (
+        <>
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -140,6 +148,22 @@ export default function KmLogsPage() {
           </table>
           </div>
         </div>
+        {logsPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
+            <span className="text-slate-500 text-xs">Página {page} de {logsPages}</span>
+            <div className="flex gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-lg">
+                ← Anterior
+              </button>
+              <button onClick={() => setPage(p => Math.min(logsPages, p + 1))} disabled={page === logsPages}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-lg">
+                Próxima →
+              </button>
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   )
