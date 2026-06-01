@@ -6,6 +6,7 @@ import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
 import { useConfirm } from '../../components/ConfirmModal.js'
 import { SkeletonCard } from '../../components/Skeleton.js'
+import PreventivePlanSection from './PreventivePlanSection.js'
 
 const TYPE_LABELS: Record<string, string> = {
   troca_oleo: 'Troca de Óleo',
@@ -171,6 +172,9 @@ export default function MaintenancePage() {
           </div>
         </div>
       )}
+
+      {/* Plano de manutenção preventiva */}
+      {vehicleId && <PreventivePlanSection vehicleId={vehicleId} isAdmin={isAdmin} />}
 
       {/* Formulário */}
       {showForm && (
