@@ -17,7 +17,7 @@ export function useFuelLogs(filters: Record<string, string | number | undefined>
 export function useCreateFuelLog() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: unknown) => api.post('/fuel-logs', data),
+    mutationFn: (data: unknown) => api.postQueued('/fuel-logs', data, 'Registro de combustível'),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['fuel-logs'] }),
   })
 }

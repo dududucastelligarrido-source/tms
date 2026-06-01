@@ -1,12 +1,45 @@
 import { useState, useRef, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { clearTokens, getUser } from '../lib/auth.js'
 import { api } from '../lib/api.js'
+import { useOfflineStatus } from '../hooks/useOfflineStatus.js'
 import {
   LayoutDashboard, Route, Truck, User, Users, BarChart2, Fuel, Wrench, ClipboardList, Gauge, Bell, Menu, X,
+  WifiOff, RefreshCw, ScrollText,
   type LucideIcon,
 } from 'lucide-react'
+
+function OfflineBanner() {
+  const { online, pending } = useOfflineStatus()
+  const qc = useQueryClient()
+
+  useEffect(() => {
+    function onFlushed() { qc.invalidateQueries() }
+    window.addEventListener('offline-queue-flushed', onFlushed)
+    return () => window.removeEventListener('offline-queue-flushed', onFlushed)
+  }, [qc])
+
+  if (online && pending === 0) return null
+
+  return (
+    <div className={`flex items-center justify-center gap-2 px-4 py-2 text-xs font-medium ${
+      online ? 'bg-amber-950/80 text-amber-300' : 'bg-red-950/80 text-red-300'
+    }`}>
+      {online ? (
+        <>
+          <RefreshCw size={13} className="animate-spin" />
+          Sincronizando {pending} ação{pending > 1 ? 'ões' : ''} pendente{pending > 1 ? 's' : ''}...
+        </>
+      ) : (
+        <>
+          <WifiOff size={13} />
+          Você está offline. {pending > 0 ? `${pending} ação${pending > 1 ? 'ões' : ''} será${pending > 1 ? 'ão' : ''} enviada${pending > 1 ? 's' : ''} ao reconectar.` : 'As ações de campo serão salvas localmente.'}
+        </>
+      )}
+    </div>
+  )
+}
 
 type NavItem = { to: string; label: string; icon: LucideIcon }
 type NavGroup = { label: string | null; items: NavItem[] }
@@ -241,6 +274,7 @@ export default function Layout() {
 
       {/* Conteúdo principal */}
       <main className="flex-1 overflow-auto flex flex-col min-w-0">
+        <OfflineBanner />
         {/* Topbar mobile */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800 sticky top-0 z-20 shrink-0">
           <button

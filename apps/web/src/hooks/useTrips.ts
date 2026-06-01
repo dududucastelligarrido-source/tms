@@ -50,7 +50,7 @@ export function useStartTrip() {
 export function useCompleteTrip() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; kmEnd: number }) =>
+    mutationFn: ({ id, ...data }: { id: string; kmEnd: number; photoOdometerUrl?: string }) =>
       api.patch<any>(`/trips/${id}/complete`, data),
     onSuccess: (_: any, { id }: { id: string; kmEnd: number }) => {
       qc.invalidateQueries({ queryKey: ['trips'] })
@@ -63,7 +63,7 @@ export function useAddCost() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ tripId, ...data }: { tripId: string; category: string; description: string; amount: number; paidAt: string }) =>
-      api.post<any>(`/trips/${tripId}/costs`, data),
+      api.postQueued<any>(`/trips/${tripId}/costs`, data, 'Custo de viagem'),
     onSuccess: (_: any, { tripId }: { tripId: string; category: string; description: string; amount: number; paidAt: string }) =>
       qc.invalidateQueries({ queryKey: ['trips', tripId] }),
   })
