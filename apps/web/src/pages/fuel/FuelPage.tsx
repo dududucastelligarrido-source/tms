@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useFuelLogs, useCreateFuelLog, useUpdateFuelLog, useDeleteFuelLog } from '../../hooks/useFuelLogs.js'
 import { useVehicles } from '../../hooks/useVehicles.js'
 import { useDrivers } from '../../hooks/useDrivers.js'
@@ -8,7 +9,13 @@ import { useConfirm } from '../../components/ConfirmModal.js'
 import { SkeletonTable } from '../../components/Skeleton.js'
 import { useSort, SortIcon } from '../../hooks/useSort.js'
 import { FileUpload } from '../../components/FileUpload.js'
-import { isQueued } from '../../lib/api.js'
+import { api, isQueued } from '../../lib/api.js'
+
+const ANOMALY_LABELS: Record<string, string> = {
+  low_efficiency: 'Consumo baixo',
+  odometer_regression: 'Hodômetro inconsistente',
+  volume_outlier: 'Volume atípico',
+}
 
 const EMPTY_FORM = {
   vehicleId: '', driverId: '', tripId: '',
@@ -45,6 +52,14 @@ export default function FuelPage() {
   const createLog = useCreateFuelLog()
   const updateLog = useUpdateFuelLog()
   const deleteLog = useDeleteFuelLog()
+
+  const [showAnomalies, setShowAnomalies] = useState(false)
+  const { data: anomaliesResult } = useQuery({
+    queryKey: ['fuel-anomalies'],
+    queryFn: () => api.get<{ data: any[]; total: number }>('/fuel-anomalies?days=90'),
+    enabled: isAdmin,
+  })
+  const anomalies = anomaliesResult?.data ?? []
 
   const toast = useToast()
   const confirm = useConfirm()
@@ -177,6 +192,37 @@ export default function FuelPage() {
           </button>
         )}
       </div>
+
+      {/* Anomalias de consumo (admin) */}
+      {isAdmin && anomalies.length > 0 && (
+        <div className="bg-amber-950/30 border border-amber-900/60 rounded-xl mb-6 overflow-hidden">
+          <button
+            onClick={() => setShowAnomalies(s => !s)}
+            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-amber-950/20"
+          >
+            <span className="text-sm font-semibold text-amber-300">
+              ⚠️ {anomalies.length} anomalia{anomalies.length > 1 ? 's' : ''} de consumo detectada{anomalies.length > 1 ? 's' : ''} (últimos 90 dias)
+            </span>
+            <span className="text-amber-400 text-xs">{showAnomalies ? 'Ocultar ▲' : 'Ver ▼'}</span>
+          </button>
+          {showAnomalies && (
+            <div className="border-t border-amber-900/60 divide-y divide-amber-900/30">
+              {anomalies.map((a: any) => (
+                <div key={`${a.logId}-${a.type}`} className="flex items-start gap-3 px-4 py-2.5 text-sm">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 mt-0.5 ${a.severity === 'high' ? 'bg-red-950 text-red-400' : 'bg-amber-900/60 text-amber-300'}`}>
+                    {ANOMALY_LABELS[a.type] ?? a.type}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-slate-200">{a.plate} — {a.model} <span className="text-slate-500">· {a.driverName}</span></div>
+                    <div className="text-slate-400 text-xs">{a.detail}</div>
+                  </div>
+                  <span className="text-slate-500 text-xs shrink-0">{new Date(a.loggedAt).toLocaleDateString('pt-BR')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-6 space-y-4">
