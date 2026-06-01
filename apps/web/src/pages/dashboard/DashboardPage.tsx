@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, LabelList,
@@ -10,6 +10,7 @@ import { semantic } from '../../lib/theme.js'
 import { useTrips } from '../../hooks/useTrips.js'
 import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
+import { useToast } from '../../components/Toast.js'
 
 const PIE_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6']
 
@@ -99,6 +100,16 @@ export default function DashboardPage() {
   const user = getUser()
   const isAdmin = user?.role === 'admin'
   const [period, setPeriod] = useState('30')
+  const toast = useToast()
+
+  const sendAlerts = useMutation({
+    mutationFn: () => api.post<{ sent: boolean; recipients: number; alerts: number }>('/alerts/send-now', {}),
+    onSuccess: (r) => {
+      if (r.sent) toast.success(`Alertas enviados para ${r.recipients} admin(s).`)
+      else toast.success('Nenhum alerta pendente para enviar.')
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Falha ao enviar alertas'),
+  })
 
   const { data: tripsResult } = useTrips({ limit: 6 })
   const allTrips = tripsResult?.data ?? []
@@ -156,7 +167,13 @@ export default function DashboardPage() {
       {/* Alertas */}
       {isAdmin && alerts && totalAlerts > 0 && (
         <div className="bg-slate-900 border-l-4 border-red-600 rounded-r-xl p-4 space-y-2">
-          <h2 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-3">Alertas</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-red-400 uppercase tracking-wider">Alertas</h2>
+            <button onClick={() => sendAlerts.mutate()} disabled={sendAlerts.isPending}
+              className="text-xs text-slate-400 hover:text-slate-200 border border-slate-700 hover:border-slate-600 px-2.5 py-1 rounded-lg disabled:opacity-50 transition-colors">
+              {sendAlerts.isPending ? 'Enviando...' : '✉️ Enviar por email'}
+            </button>
+          </div>
           <div className="space-y-2">
             {alerts.cnhExpirando.map((a: any) => (
               <div key={a.name} className="flex items-center justify-between text-sm gap-2">
