@@ -6,6 +6,7 @@ import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
 import { useConfirm } from '../../components/ConfirmModal.js'
 import { SkeletonCard } from '../../components/Skeleton.js'
+import { FileUpload } from '../../components/FileUpload.js'
 
 const TYPE_LABELS: Record<string, string> = {
   troca_oleo: 'Troca de Óleo',
@@ -27,6 +28,7 @@ const EMPTY_FORM = {
   nextServiceKm: '',
   nextServiceDate: '',
   notes: '',
+  photoUrl: '',
 }
 
 export default function MaintenancePage() {
@@ -67,6 +69,7 @@ export default function MaintenancePage() {
       nextServiceKm: r.nextServiceKm ? String(r.nextServiceKm) : '',
       nextServiceDate: r.nextServiceDate ? new Date(r.nextServiceDate).toISOString().split('T')[0] : '',
       notes: r.notes ?? '',
+      photoUrl: r.photoUrl ?? '',
     })
     setEditError('')
   }
@@ -86,6 +89,7 @@ export default function MaintenancePage() {
           ...(editForm.nextServiceKm ? { nextServiceKm: Number(editForm.nextServiceKm) } : {}),
           ...(editForm.nextServiceDate ? { nextServiceDate: new Date(editForm.nextServiceDate).toISOString() } : {}),
           ...(editForm.notes ? { notes: editForm.notes } : {}),
+          ...(editForm.photoUrl ? { photoUrl: editForm.photoUrl } : {}),
         },
       })
       setEditingId(null)
@@ -109,6 +113,7 @@ export default function MaintenancePage() {
         ...(form.nextServiceKm ? { nextServiceKm: Number(form.nextServiceKm) } : {}),
         ...(form.nextServiceDate ? { nextServiceDate: new Date(form.nextServiceDate).toISOString() } : {}),
         ...(form.notes ? { notes: form.notes } : {}),
+        ...(form.photoUrl ? { photoUrl: form.photoUrl } : {}),
       })
       setForm(EMPTY_FORM)
       setShowForm(false)
@@ -225,6 +230,12 @@ export default function MaintenancePage() {
             <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className={inputCls} placeholder="Opcional" />
           </div>
 
+          <FileUpload
+            context="maintenance"
+            onUploaded={url => setForm(f => ({ ...f, photoUrl: url }))}
+            existingUrl={form.photoUrl}
+          />
+
           <button type="submit" disabled={create.isPending}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg py-2 text-sm">
             {create.isPending ? 'Salvando...' : 'Salvar Manutenção'}
@@ -310,6 +321,11 @@ export default function MaintenancePage() {
                       {r.nextServiceDate && <span>ou {new Date(r.nextServiceDate).toLocaleDateString('pt-BR')}</span>}
                     </div>
                     {r.notes && <p className="text-slate-500 text-xs mt-1">{r.notes}</p>}
+                    {r.photoUrl && (
+                      <a href={r.photoUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2">
+                        <img src={r.photoUrl} alt="Foto da manutenção" className="w-16 h-16 object-cover rounded-lg border border-slate-700" />
+                      </a>
+                    )}
                   </div>
                   {isAdmin && (
                     <div className="flex items-center gap-3 ml-4 shrink-0">

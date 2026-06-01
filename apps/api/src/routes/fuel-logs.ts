@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/authenticate.js'
 import { tenantScope } from '../middleware/tenant-scope.js'
 import { requireRole } from '../middleware/require-role.js'
 import { prisma } from '../plugins/prisma.js'
+import { getIdempotencyKey, alreadyProcessed } from '../lib/idempotency.js'
 
 const CreateFuelLogSchema = z.object({
   vehicleId: z.string().uuid(),
@@ -72,25 +73,37 @@ export const fuelLogRoutes: FastifyPluginAsync = async (fastify) => {
       ? (data.kmAtFueling - prevLog.kmAtFueling) / data.liters
       : null
 
-    const log = await prisma.fuelLog.create({
-      data: {
-        tenantId: (request as any).tenantId,
-        vehicleId: data.vehicleId,
-        driverId: data.driverId,
-        tripId: data.tripId,
-        loggedAt: new Date(data.loggedAt),
-        fuelType: data.fuelType,
-        liters: data.liters,
-        pricePerLiter: data.pricePerLiter,
-        totalAmount,
-        station: data.station,
-        receiptUrl: data.receiptUrl,
-        kmAtFueling: data.kmAtFueling,
-        ...(kmPerLiter && kmPerLiter > 0 ? { kmPerLiter } : {}),
-      } as any,
-      include: { vehicle: true, driver: true },
-    })
-    return reply.status(201).send(log)
+    const idemKey = getIdempotencyKey(request)
+    if (idemKey && await alreadyProcessed(idemKey)) return reply.status(200).send({ idempotent: true })
+
+    try {
+      const log = await prisma.$transaction(async (tx) => {
+        const created = await tx.fuelLog.create({
+          data: {
+            tenantId: (request as any).tenantId,
+            vehicleId: data.vehicleId,
+            driverId: data.driverId,
+            tripId: data.tripId,
+            loggedAt: new Date(data.loggedAt),
+            fuelType: data.fuelType,
+            liters: data.liters,
+            pricePerLiter: data.pricePerLiter,
+            totalAmount,
+            station: data.station,
+            receiptUrl: data.receiptUrl,
+            kmAtFueling: data.kmAtFueling,
+            ...(kmPerLiter && kmPerLiter > 0 ? { kmPerLiter } : {}),
+          } as any,
+          include: { vehicle: true, driver: true },
+        })
+        if (idemKey) await tx.idempotencyKey.create({ data: { key: idemKey } })
+        return created
+      })
+      return reply.status(201).send(log)
+    } catch (err: any) {
+      if (err?.code === 'P2002' && idemKey) return reply.status(200).send({ idempotent: true })
+      throw err
+    }
   })
 
   fastify.patch('/fuel-logs/:id', { preHandler: requireRole('admin') }, async (request, reply) => {

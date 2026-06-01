@@ -8,6 +8,15 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// Dedupes mutations replayed by the offline queue: the client sends a stable
+// Idempotency-Key header, recorded here on first success so replays are no-ops.
+model IdempotencyKey {
+  key       String   @id
+  createdAt DateTime @default(now())
+
+  @@map("idempotency_keys")
+}
+
 model Tenant {
   id        String   @id @default(uuid())
   name      String

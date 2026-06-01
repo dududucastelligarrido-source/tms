@@ -77,7 +77,7 @@ export function FileUpload({ context, onUploaded, existingUrl, label, disabled }
         type="file"
         accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
         className="hidden"
-        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
         disabled={disabled || uploading}
       />
 

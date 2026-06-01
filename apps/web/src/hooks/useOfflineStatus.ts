@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
-import { subscribeQueue, getPendingCount, flushQueue } from '../lib/offlineQueue.js'
+import { subscribeQueue, getPendingCount, getFailedCount, flushQueue } from '../lib/offlineQueue.js'
 
 /**
- * Tracks connectivity and the offline mutation queue size.
- * Triggers a flush on mount and whenever the browser comes back online.
+ * Tracks connectivity, the offline mutation queue size, and the count of
+ * mutations permanently rejected on replay (4xx). Triggers a flush on mount
+ * and whenever the browser comes back online.
  */
 export function useOfflineStatus() {
   const [online, setOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true)
   const [pending, setPending] = useState(getPendingCount())
+  const [failed, setFailed] = useState(getFailedCount())
 
   useEffect(() => {
     function onOnline() { setOnline(true); flushQueue() }
@@ -15,7 +17,10 @@ export function useOfflineStatus() {
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
 
-    const unsub = subscribeQueue(() => setPending(getPendingCount()))
+    const unsub = subscribeQueue(() => {
+      setPending(getPendingCount())
+      setFailed(getFailedCount())
+    })
 
     // Attempt to drain anything left from a previous session.
     flushQueue()
@@ -27,5 +32,5 @@ export function useOfflineStatus() {
     }
   }, [])
 
-  return { online, pending }
+  return { online, pending, failed }
 }
