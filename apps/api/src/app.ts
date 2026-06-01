@@ -17,6 +17,7 @@ import { maintenanceRoutes } from './routes/maintenance.js'
 import { uploadRoutes } from './routes/uploads.js'
 import { alertRoutes } from './routes/alerts.js'
 import { auditLogRoutes } from './routes/audit-logs.js'
+import { fuelAnomalyRoutes } from './routes/fuel-anomalies.js'
 import { auditHook } from './lib/audit.js'
 
 export async function createApp(opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
@@ -53,6 +54,7 @@ export async function createApp(opts: { logger?: boolean } = {}): Promise<Fastif
   await app.register(uploadRoutes, { prefix: '/api/v1' })
   await app.register(alertRoutes, { prefix: '/api/v1' })
   await app.register(auditLogRoutes, { prefix: '/api/v1' })
+  await app.register(fuelAnomalyRoutes, { prefix: '/api/v1' })
 
   app.addHook('onResponse', auditHook)
 
