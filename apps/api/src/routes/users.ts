@@ -64,11 +64,32 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   })
 
   fastify.get('/users', { preHandler: requireRole('admin') }, async (request) => {
-    return prisma.user.findMany({
-      where: { tenantId: (request as any).tenantId, isActive: true },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
-      orderBy: { name: 'asc' },
-    })
+    const query = z.object({
+      search: z.string().optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
+    }).parse(request.query)
+
+    const where: Record<string, unknown> = { tenantId: (request as any).tenantId, isActive: true }
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { email: { contains: query.search, mode: 'insensitive' } },
+      ]
+    }
+
+    const skip = (query.page - 1) * query.limit
+    const [data, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: { id: true, name: true, email: true, role: true, createdAt: true },
+        orderBy: { name: 'asc' },
+        skip,
+        take: query.limit,
+      }),
+      prisma.user.count({ where }),
+    ])
+    return { data, total, page: query.page, pages: Math.ceil(total / query.limit) }
   })
 
   fastify.post('/users', { preHandler: requireRole('admin') }, async (request, reply) => {

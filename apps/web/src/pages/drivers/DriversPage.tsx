@@ -25,10 +25,14 @@ function toDateInput(iso: string) {
 }
 
 export default function DriversPage() {
-  const { data: drivers = [], isLoading } = useDrivers()
   const user = getUser()
   const qc = useQueryClient()
+  const toast = useToast()
+  const confirm = useConfirm()
+
+  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -36,8 +40,11 @@ export default function DriversPage() {
   const [error, setError] = useState('')
   const [editError, setEditError] = useState('')
 
-  const toast = useToast()
-  const confirm = useConfirm()
+  const { data: result, isLoading } = useDrivers({ page, ...(search ? { search } : {}), limit: 50 })
+  const drivers = result?.data ?? []
+  const pages = result?.pages ?? 1
+  const total = result?.total ?? 0
+
   const inputClass = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500'
 
   const create = useMutation({
@@ -63,6 +70,12 @@ export default function DriversPage() {
     setEditingId(d.id)
     setEditForm({ name: d.name, cpf: d.cpf, cnhNumber: d.cnhNumber, cnhCategory: d.cnhCategory, cnhExpiresAt: toDateInput(d.cnhExpiresAt) })
     setEditError('')
+  }
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    setSearch(searchInput)
+    setPage(1)
   }
 
   const FormFields = ({ f, set }: { f: typeof emptyForm; set: (fn: (prev: typeof emptyForm) => typeof emptyForm) => void }) => (
@@ -103,12 +116,15 @@ export default function DriversPage() {
         )}
       </div>
 
-      <input
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        placeholder="Buscar por nome, CPF ou CNH..."
-        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 mb-4"
-      />
+      <form onSubmit={handleSearch} className="flex gap-2 mb-4">
+        <input
+          value={searchInput}
+          onChange={e => { setSearchInput(e.target.value); if (!e.target.value) { setSearch(''); setPage(1) } }}
+          placeholder="Buscar por nome, CPF ou CNH..."
+          className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500"
+        />
+        <button type="submit" className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-lg">Buscar</button>
+      </form>
 
       {showForm && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
@@ -129,92 +145,102 @@ export default function DriversPage() {
         <SkeletonList />
       ) : (
         <>
-        {/* Painel de alertas de CNH */}
-        {(() => {
-          const hoje = Date.now()
-          const vencidas = (drivers as any[]).filter(d => new Date(d.cnhExpiresAt).getTime() < hoje)
-          const proximas = (drivers as any[]).filter(d => {
-            const diff = (new Date(d.cnhExpiresAt).getTime() - hoje) / 86400000
-            return diff >= 0 && diff <= 30
-          })
-          if (vencidas.length === 0 && proximas.length === 0) return null
-          return (
-            <div className="space-y-2 mb-4">
-              {vencidas.length > 0 && (
-                <div className="bg-red-950/40 border border-red-800 rounded-xl px-4 py-3 text-sm text-red-300">
-                  ⚠️ <strong>{vencidas.length}</strong> CNH vencida{vencidas.length > 1 ? 's' : ''}: {vencidas.map((d: any) => d.name).join(', ')}
-                </div>
-              )}
-              {proximas.length > 0 && (
-                <div className="bg-amber-950/40 border border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-300">
-                  ⚠️ <strong>{proximas.length}</strong> CNH vence em até 30 dias: {proximas.map((d: any) => d.name).join(', ')}
-                </div>
-              )}
-            </div>
-          )
-        })()}
-
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          {(drivers as any[])
-            .filter((d: any) => {
-              if (!search) return true
-              const q = search.toLowerCase()
-              return d.name?.toLowerCase().includes(q) || d.cpf?.includes(q) || d.cnhNumber?.toLowerCase().includes(q)
-            })
-            .map((d: any) => {
+          {(() => {
             const hoje = Date.now()
-            const expiryMs = new Date(d.cnhExpiresAt).getTime()
-            const diffDias = Math.ceil((expiryMs - hoje) / 86400000)
-            const cnhStatus = diffDias < 0 ? 'expired' : diffDias <= 30 ? 'warning' : 'ok'
+            const vencidas = drivers.filter((d: any) => new Date(d.cnhExpiresAt).getTime() < hoje)
+            const proximas = drivers.filter((d: any) => {
+              const diff = (new Date(d.cnhExpiresAt).getTime() - hoje) / 86400000
+              return diff >= 0 && diff <= 30
+            })
+            if (vencidas.length === 0 && proximas.length === 0) return null
             return (
-            <div key={d.id} className="border-b border-slate-800 last:border-0">
-              {editingId === d.id ? (
-                <div className="p-4">
-                  <FormFields f={editForm} set={setEditForm} />
-                  {editError && <p className="text-red-400 text-xs mt-3">{editError}</p>}
-                  <div className="flex gap-2 mt-4">
-                    <button onClick={() => { const err = validateDriverForm(editForm); if (err) { setEditError(err); return } update.mutate({ id: d.id, data: editForm }) }} disabled={update.isPending}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50">
-                      {update.isPending ? 'Salvando...' : 'Salvar'}
-                    </button>
-                    <button onClick={() => setEditingId(null)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs">Cancelar</button>
+              <div className="space-y-2 mb-4">
+                {vencidas.length > 0 && (
+                  <div className="bg-red-950/40 border border-red-800 rounded-xl px-4 py-3 text-sm text-red-300">
+                    ⚠️ <strong>{vencidas.length}</strong> CNH vencida{vencidas.length > 1 ? 's' : ''}: {vencidas.map((d: any) => d.name).join(', ')}
                   </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between p-4">
-                  <div>
-                    <div className="text-slate-100 font-medium text-sm">{d.name}</div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-slate-400 text-xs">
-                        CNH {d.cnhNumber} · Cat. {d.cnhCategory} · Válida até {new Date(d.cnhExpiresAt).toLocaleDateString('pt-BR')}
-                      </span>
-                      {cnhStatus === 'expired' && (
-                        <span className="text-xs font-semibold bg-red-950 text-red-400 px-1.5 py-0.5 rounded-full">Vencida</span>
-                      )}
-                      {cnhStatus === 'warning' && (
-                        <span className="text-xs font-semibold bg-amber-950 text-amber-400 px-1.5 py-0.5 rounded-full">Vence em {diffDias}d</span>
-                      )}
+                )}
+                {proximas.length > 0 && (
+                  <div className="bg-amber-950/40 border border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-300">
+                    ⚠️ <strong>{proximas.length}</strong> CNH vence em até 30 dias: {proximas.map((d: any) => d.name).join(', ')}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            {drivers.map((d: any) => {
+              const hoje = Date.now()
+              const expiryMs = new Date(d.cnhExpiresAt).getTime()
+              const diffDias = Math.ceil((expiryMs - hoje) / 86400000)
+              const cnhStatus = diffDias < 0 ? 'expired' : diffDias <= 30 ? 'warning' : 'ok'
+              return (
+                <div key={d.id} className="border-b border-slate-800 last:border-0">
+                  {editingId === d.id ? (
+                    <div className="p-4">
+                      <FormFields f={editForm} set={setEditForm} />
+                      {editError && <p className="text-red-400 text-xs mt-3">{editError}</p>}
+                      <div className="flex gap-2 mt-4">
+                        <button onClick={() => { const err = validateDriverForm(editForm); if (err) { setEditError(err); return } update.mutate({ id: d.id, data: editForm }) }} disabled={update.isPending}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50">
+                          {update.isPending ? 'Salvando...' : 'Salvar'}
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs">Cancelar</button>
+                      </div>
                     </div>
-                  </div>
-                  {user?.role === 'admin' && (
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => startEdit(d)} className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded">Editar</button>
-                      <button onClick={async () => { if (await confirm({ title: 'Excluir motorista', message: `Excluir ${d.name}? Esta ação não pode ser desfeita.` })) remove.mutate(d.id) }}
-                        className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded">
-                        Excluir
-                      </button>
+                  ) : (
+                    <div className="flex items-center justify-between p-4">
+                      <div>
+                        <div className="text-slate-100 font-medium text-sm">{d.name}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-slate-400 text-xs">
+                            CNH {d.cnhNumber} · Cat. {d.cnhCategory} · Válida até {new Date(d.cnhExpiresAt).toLocaleDateString('pt-BR')}
+                          </span>
+                          {cnhStatus === 'expired' && (
+                            <span className="text-xs font-semibold bg-red-950 text-red-400 px-1.5 py-0.5 rounded-full">Vencida</span>
+                          )}
+                          {cnhStatus === 'warning' && (
+                            <span className="text-xs font-semibold bg-amber-950 text-amber-400 px-1.5 py-0.5 rounded-full">Vence em {diffDias}d</span>
+                          )}
+                        </div>
+                      </div>
+                      {user?.role === 'admin' && (
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => startEdit(d)} className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded">Editar</button>
+                          <button onClick={async () => { if (await confirm({ title: 'Excluir motorista', message: `Excluir ${d.name}? Esta ação não pode ser desfeita.` })) remove.mutate(d.id) }}
+                            className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded">
+                            Excluir
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              )
+            })}
+            {drivers.length === 0 && (
+              <div className="p-8 text-center text-slate-500 text-sm">
+                {search ? `Nenhum motorista encontrado para "${search}".` : 'Nenhum motorista cadastrado.'}
+              </div>
+            )}
+          </div>
+
+          {pages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <span className="text-slate-500 text-xs">{total} motoristas · Página {page} de {pages}</span>
+              <div className="flex gap-2">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-lg">
+                  ← Anterior
+                </button>
+                <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-lg">
+                  Próxima →
+                </button>
+              </div>
             </div>
-          )
-          })}
-          {(drivers as any[]).length === 0 && <div className="p-8 text-center text-slate-500 text-sm">Nenhum motorista cadastrado.</div>}
-          {(drivers as any[]).length > 0 && search && (drivers as any[]).filter((d: any) => { const q = search.toLowerCase(); return d.name?.toLowerCase().includes(q) || d.cpf?.includes(q) || d.cnhNumber?.toLowerCase().includes(q) }).length === 0 && (
-            <div className="p-8 text-center text-slate-500 text-sm">Nenhum motorista encontrado para "{search}".</div>
           )}
-        </div>
         </>
       )}
     </div>

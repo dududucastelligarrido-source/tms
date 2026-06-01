@@ -32,8 +32,27 @@ export const driverRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', tenantScope)
 
   fastify.get('/drivers', async (request) => {
-    const { limit } = z.object({ limit: z.coerce.number().int().min(1).max(500).default(100) }).parse(request.query)
-    return prisma.driver.findMany({ where: { tenantId: (request as any).tenantId, isActive: true }, orderBy: { name: 'asc' }, take: limit })
+    const query = z.object({
+      search: z.string().optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
+    }).parse(request.query)
+
+    const where: Record<string, unknown> = { tenantId: (request as any).tenantId, isActive: true }
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { cpf: { contains: query.search } },
+        { cnhNumber: { contains: query.search, mode: 'insensitive' } },
+      ]
+    }
+
+    const skip = (query.page - 1) * query.limit
+    const [data, total] = await Promise.all([
+      prisma.driver.findMany({ where, orderBy: { name: 'asc' }, skip, take: query.limit }),
+      prisma.driver.count({ where }),
+    ])
+    return { data, total, page: query.page, pages: Math.ceil(total / query.limit) }
   })
 
   fastify.get('/drivers/:id', async (request, reply) => {

@@ -28,6 +28,6 @@ describe('Tenant isolation', () => {
     })
 
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toHaveLength(0)
+    expect(res.json().data).toHaveLength(0)
   })
 })

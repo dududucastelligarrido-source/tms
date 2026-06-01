@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useTrip } from '../../hooks/useTrips.js'
+import { useTrip, useStartTrip } from '../../hooks/useTrips.js'
 import { useVehicles } from '../../hooks/useVehicles.js'
 import { useDrivers } from '../../hooks/useDrivers.js'
+import { useChecklistTemplates, useCreateChecklist } from '../../hooks/useChecklists.js'
 import { api } from '../../lib/api.js'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 import FreightCalculator from '../../components/FreightCalculator.js'
@@ -24,8 +25,10 @@ export default function TripDetailPage() {
   const user = getUser()
   const isAdmin = user?.role === 'admin'
   const { data: trip, isLoading } = useTrip(id!)
-  const { data: vehicles = [] } = useVehicles()
-  const { data: drivers = [] } = useDrivers()
+  const { data: vehiclesPage } = useVehicles({ limit: 200 })
+  const { data: driversPage } = useDrivers({ limit: 200 })
+  const vehicles = vehiclesPage?.data ?? []
+  const drivers = driversPage?.data ?? []
   const toast = useToast()
   const confirm = useConfirm()
   const [showCostForm, setShowCostForm] = useState(false)
@@ -110,6 +113,27 @@ export default function TripDetailPage() {
     onError: (e: any) => toast.error(e.message),
   })
 
+  const { data: templates = [] } = useChecklistTemplates()
+  const createChecklist = useCreateChecklist(id!)
+  const startTrip = useStartTrip()
+
+  async function startDepartureChecklist() {
+    const template = (templates as any[]).find(t => t.type === 'departure')
+    if (!template) { toast.error('Nenhum template de checklist de saída cadastrado.'); return }
+    try {
+      const checklist = await createChecklist.mutateAsync({ templateId: template.id, type: 'departure' })
+      navigate(`/trips/${id}/checklists/${checklist.id}`)
+    } catch (e: any) { toast.error(e.message) }
+  }
+
+  async function handleStartTrip() {
+    try {
+      await startTrip.mutateAsync(id!)
+      toast.success('Viagem iniciada!')
+      navigate(`/trips/${id}/active`)
+    } catch (e: any) { toast.error(e.message) }
+  }
+
   async function cancelTrip() {
     if (!await confirm({ title: 'Cancelar viagem', message: 'Cancelar esta viagem? Esta ação não pode ser desfeita.', confirmLabel: 'Cancelar viagem' })) return
     try {
@@ -128,6 +152,10 @@ export default function TripDetailPage() {
   const t = trip as any
   const canAddCost = t.status === 'draft' || t.status === 'active'
   const inputCls = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500'
+
+  const departureChecklist = (t.checklists ?? []).find((c: any) => c.type === 'departure')
+  const departureDone = !!departureChecklist?.completedAt
+  const hasDepartureTemplate = (templates as any[]).some(tpl => tpl.type === 'departure')
 
   return (
     <div className="p-6 max-w-2xl">
@@ -152,6 +180,41 @@ export default function TripDetailPage() {
           )}
         </div>
       </div>
+
+      {t.status === 'draft' && (
+        <div className="bg-slate-900 border border-blue-900/50 rounded-xl p-5 mb-4">
+          <h2 className="text-sm font-semibold text-slate-200 mb-1">Preparação para a viagem</h2>
+          {!hasDepartureTemplate ? (
+            <p className="text-amber-400 text-xs mt-2">
+              Nenhum checklist de saída cadastrado. {isAdmin && <button onClick={() => navigate('/checklist-templates')} className="underline hover:text-amber-300">Criar template</button>}
+            </p>
+          ) : !departureChecklist ? (
+            <>
+              <p className="text-slate-400 text-xs mb-3">Complete o checklist de saída antes de iniciar a viagem.</p>
+              <button onClick={startDepartureChecklist} disabled={createChecklist.isPending}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                {createChecklist.isPending ? 'Abrindo...' : '📋 Iniciar checklist de saída'}
+              </button>
+            </>
+          ) : !departureDone ? (
+            <>
+              <p className="text-amber-400 text-xs mb-3">Checklist de saída iniciado, mas não concluído.</p>
+              <button onClick={() => navigate(`/trips/${id}/checklists/${departureChecklist.id}`)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                Continuar checklist de saída
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-green-400 text-xs mb-3">✓ Checklist de saída concluído. Pronto para iniciar.</p>
+              <button onClick={handleStartTrip} disabled={startTrip.isPending}
+                className="bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                {startTrip.isPending ? 'Iniciando...' : '🚛 Iniciar Viagem'}
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {showDriverChange && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
@@ -403,16 +466,28 @@ export default function TripDetailPage() {
                       {cl.template.items.map((item: any) => {
                         const resp = cl.responses?.find((r: any) => r.itemId === item.id)
                         return (
-                          <div key={item.id} className="flex items-center gap-2 py-1 text-xs">
-                            {resp ? (
-                              <span className={`w-4 h-4 rounded flex items-center justify-center font-bold shrink-0 ${resp.passed ? 'bg-green-900 text-green-400' : 'bg-red-900 text-red-400'}`}>
-                                {resp.passed ? '✓' : '✗'}
-                              </span>
-                            ) : (
-                              <span className="w-4 h-4 rounded border border-slate-700 shrink-0" />
+                          <div key={item.id} className="py-1 text-xs">
+                            <div className="flex items-center gap-2">
+                              {resp ? (
+                                <span className={`w-4 h-4 rounded flex items-center justify-center font-bold shrink-0 ${resp.passed ? 'bg-green-900 text-green-400' : 'bg-red-900 text-red-400'}`}>
+                                  {resp.passed ? '✓' : '✗'}
+                                </span>
+                              ) : (
+                                <span className="w-4 h-4 rounded border border-slate-700 shrink-0" />
+                              )}
+                              <span className={resp ? (resp.passed ? 'text-slate-300' : 'text-red-300') : 'text-slate-500'}>{item.description}</span>
+                              {item.isRequired && !resp && <span className="text-red-500">*</span>}
+                            </div>
+                            {(resp?.notes || resp?.photoUrl) && (
+                              <div className="ml-6 mt-1 flex items-start gap-2">
+                                {resp.notes && <p className="text-slate-400 italic flex-1">"{resp.notes}"</p>}
+                                {resp.photoUrl && (
+                                  <a href={resp.photoUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                    <img src={resp.photoUrl} alt="Foto do item" className="w-12 h-12 object-cover rounded border border-slate-700" />
+                                  </a>
+                                )}
+                              </div>
                             )}
-                            <span className={resp ? (resp.passed ? 'text-slate-300' : 'text-red-300') : 'text-slate-500'}>{item.description}</span>
-                            {item.isRequired && !resp && <span className="text-red-500">*</span>}
                           </div>
                         )
                       })}

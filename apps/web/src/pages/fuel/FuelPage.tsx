@@ -7,11 +7,14 @@ import { useToast } from '../../components/Toast.js'
 import { useConfirm } from '../../components/ConfirmModal.js'
 import { SkeletonTable } from '../../components/Skeleton.js'
 import { useSort, SortIcon } from '../../hooks/useSort.js'
+import { FileUpload } from '../../components/FileUpload.js'
+import { isQueued } from '../../lib/api.js'
 
 const EMPTY_FORM = {
   vehicleId: '', driverId: '', tripId: '',
   loggedAt: '', fuelType: 'diesel' as 'diesel' | 'arla',
   liters: '', pricePerLiter: '', station: '', kmAtFueling: '',
+  receiptUrl: '',
 }
 
 const EMPTY_EDIT = { liters: '', pricePerLiter: '', station: '', kmAtFueling: '', loggedAt: '' }
@@ -35,8 +38,10 @@ export default function FuelPage() {
   const logsRaw = logsResult?.data ?? []
   const logsPages = logsResult?.pages ?? 1
   const { sorted: logs, key: sortKey, dir: sortDir, toggle: sortToggle } = useSort(logsRaw as any[], 'loggedAt', 'desc')
-  const { data: vehicles = [] } = useVehicles()
-  const { data: drivers = [] } = useDrivers()
+  const { data: vehiclesPage } = useVehicles({ limit: 200 })
+  const { data: driversPage } = useDrivers({ limit: 200 })
+  const vehicles = vehiclesPage?.data ?? []
+  const drivers = driversPage?.data ?? []
   const createLog = useCreateFuelLog()
   const updateLog = useUpdateFuelLog()
   const deleteLog = useDeleteFuelLog()
@@ -88,7 +93,7 @@ export default function FuelPage() {
     e.preventDefault()
     setError('')
     try {
-      await createLog.mutateAsync({
+      const result = await createLog.mutateAsync({
         vehicleId: form.vehicleId,
         driverId: form.driverId,
         ...(form.tripId ? { tripId: form.tripId } : {}),
@@ -97,11 +102,12 @@ export default function FuelPage() {
         liters: Number(form.liters),
         pricePerLiter: Number(form.pricePerLiter),
         ...(form.station ? { station: form.station } : {}),
+        ...(form.receiptUrl ? { receiptUrl: form.receiptUrl } : {}),
         kmAtFueling: Number(form.kmAtFueling),
       })
       setForm(EMPTY_FORM)
       setShowForm(false)
-      toast.success('Abastecimento registrado!')
+      toast.success(isQueued(result) ? 'Salvo offline — será enviado ao reconectar.' : 'Abastecimento registrado!')
     } catch (err: any) {
       setError(err.message)
       toast.error(err.message)
@@ -244,6 +250,12 @@ export default function FuelPage() {
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm"
             />
           </div>
+
+          <FileUpload
+            context="receipt"
+            onUploaded={url => setForm(f => ({ ...f, receiptUrl: url }))}
+            existingUrl={form.receiptUrl}
+          />
 
           {form.liters && form.pricePerLiter && (
             <p className="text-sm text-slate-400">

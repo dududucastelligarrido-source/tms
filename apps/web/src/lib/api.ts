@@ -1,4 +1,10 @@
 import { getToken, getRefreshToken, setTokens, clearTokens } from './auth.js'
+import { enqueue } from './offlineQueue.js'
+
+export interface QueuedResult { queued: true }
+export function isQueued(r: unknown): r is QueuedResult {
+  return !!r && typeof r === 'object' && (r as any).queued === true
+}
 
 const BASE = `${import.meta.env.VITE_API_URL ?? ''}/api/v1`
 
@@ -79,9 +85,31 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json()
 }
 
+// Mutations that are safe to defer when offline (fire-and-forget field actions).
+// If offline, the request is queued and replayed on reconnect; returns { queued: true }.
+// If online, behaves like a normal request but falls back to the queue on network failure.
+async function requestQueued<T>(method: 'POST' | 'PATCH' | 'DELETE', path: string, body: unknown, label: string): Promise<T | QueuedResult> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    enqueue({ method, path, body, label })
+    return { queued: true }
+  }
+  try {
+    return await request<T>(path, { method, body: body != null ? JSON.stringify(body) : undefined })
+  } catch (err: any) {
+    // Network failure (server unreachable) → defer. Re-throw real HTTP/validation errors.
+    if (err instanceof TypeError || err?.message === 'Failed to fetch') {
+      enqueue({ method, path, body, label })
+      return { queued: true }
+    }
+    throw err
+  }
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  postQueued: <T>(path: string, body: unknown, label: string) => requestQueued<T>('POST', path, body, label),
+  patchQueued: <T>(path: string, body: unknown, label: string) => requestQueued<T>('PATCH', path, body, label),
 }

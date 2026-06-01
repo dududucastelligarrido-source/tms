@@ -39,10 +39,32 @@ model User {
   driver       Driver?
   tripsCreated Trip[]   @relation("TripCreatedBy")
   costs        TripCost[]
+  auditLogs    AuditLog[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
   @@map("users")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  userId     String
+  action     String   // create | update | delete | start | complete | cancel | respond | ...
+  entity     String   // trip | vehicle | driver | fuel_log | maintenance | checklist | user | ...
+  entityId   String?
+  method     String
+  path       String
+  statusCode Int
+  summary    String?  // sanitized JSON snapshot of the request body
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entity])
+  @@index([tenantId, userId])
+  @@map("audit_logs")
 }
 
 model Vehicle {
@@ -80,6 +102,7 @@ model VehicleMaintenance {
   nextServiceKm   Int?
   nextServiceDate DateTime?
   notes           String?
+  photoUrl        String?
   createdBy       String
   createdAt       DateTime @default(now())
 
@@ -265,6 +288,7 @@ model FuelLog {
   pricePerLiter Decimal  @db.Decimal(10, 4)
   totalAmount   Decimal  @db.Decimal(10, 2)
   station       String?
+  receiptUrl    String?
   kmAtFueling   Int
   kmPerLiter    Decimal? @db.Decimal(10, 3)
   createdAt     DateTime @default(now())

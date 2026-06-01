@@ -34,7 +34,9 @@ describe('GET /api/v1/vehicles', () => {
     await app.inject({ method: 'POST', url: '/api/v1/vehicles', headers: { authorization: `Bearer ${adminToken}` }, payload: vehiclePayload })
     const res = await app.inject({ method: 'GET', url: '/api/v1/vehicles', headers: { authorization: `Bearer ${adminToken}` } })
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toHaveLength(1)
+    const body = res.json()
+    expect(body.data).toHaveLength(1)
+    expect(body.total).toBe(1)
   })
 
   it('motorista role cannot create vehicle', async () => {

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTrip, useCompleteTrip, useAddCost } from '../../hooks/useTrips.js'
+import { FileUpload } from '../../components/FileUpload.js'
+import { isQueued } from '../../lib/api.js'
 
 export default function ActiveTripPage() {
   const { id } = useParams<{ id: string }>()
@@ -11,19 +13,25 @@ export default function ActiveTripPage() {
 
   const [showCostForm, setShowCostForm] = useState(false)
   const [kmEnd, setKmEnd] = useState('')
+  const [photoOdometerUrl, setPhotoOdometerUrl] = useState('')
   const [cost, setCost] = useState({ category: 'fuel', description: '', amount: '' })
 
   async function handleComplete() {
     if (!kmEnd) return alert('Informe o KM final')
-    await completeTrip.mutateAsync({ id: id!, kmEnd: Number(kmEnd) })
+    await completeTrip.mutateAsync({
+      id: id!,
+      kmEnd: Number(kmEnd),
+      ...(photoOdometerUrl ? { photoOdometerUrl } : {}),
+    })
     navigate(`/trips/${id}`)
   }
 
   async function handleAddCost(e: React.FormEvent) {
     e.preventDefault()
-    await addCost.mutateAsync({ tripId: id!, ...cost, amount: Number(cost.amount), paidAt: new Date().toISOString() })
+    const result = await addCost.mutateAsync({ tripId: id!, ...cost, amount: Number(cost.amount), paidAt: new Date().toISOString() })
     setCost({ category: 'fuel', description: '', amount: '' })
     setShowCostForm(false)
+    if (isQueued(result)) alert('Custo salvo offline — será enviado ao reconectar.')
   }
 
   if (isLoading) return <div className="p-6 text-slate-400">Carregando...</div>
@@ -86,12 +94,17 @@ export default function ActiveTripPage() {
         </button>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div>
           <label className="text-xs text-slate-400 block mb-1">KM Final (para encerrar)</label>
           <input type="number" value={kmEnd} onChange={e => setKmEnd(e.target.value)} placeholder={`> ${t.kmStart}`} min={t.kmStart}
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm mb-2" />
+            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm" />
         </div>
+        <FileUpload
+          context="odometer"
+          onUploaded={setPhotoOdometerUrl}
+          existingUrl={photoOdometerUrl}
+        />
         <button onClick={handleComplete} disabled={completeTrip.isPending || !kmEnd}
           className="w-full bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white font-semibold rounded-xl py-3 text-sm transition-colors">
           {completeTrip.isPending ? 'Encerrando...' : 'Encerrar Viagem'}

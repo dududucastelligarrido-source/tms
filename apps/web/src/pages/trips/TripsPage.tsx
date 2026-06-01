@@ -42,7 +42,8 @@ export default function TripsPage() {
   const [vehicleId, setVehicleId] = useState('')
   const [page, setPage] = useState(1)
   const user = getUser()
-  const { data: vehicles = [] } = useVehicles()
+  const { data: vehiclesPage } = useVehicles({ limit: 200 })
+  const vehicles = vehiclesPage?.data ?? []
 
   const now = new Date()
 

@@ -15,12 +15,22 @@ export const kmLogRoutes: FastifyPluginAsync = async (fastify) => {
       vehicleId: z.string().uuid().optional(),
       driverId: z.string().uuid().optional(),
       tripId: z.string().uuid().optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
     }).parse(request.query)
 
-    return prisma.kmLog.findMany({
-      where: query,
-      include: { driver: true, vehicle: true, trip: true },
-      orderBy: { loggedAt: 'desc' },
-    })
+    const { page, limit, ...filters } = query
+    const skip = (page - 1) * limit
+    const [data, total] = await Promise.all([
+      prisma.kmLog.findMany({
+        where: filters,
+        include: { driver: true, vehicle: true, trip: true },
+        orderBy: { loggedAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.kmLog.count({ where: filters }),
+    ])
+    return { data, total, page, pages: Math.ceil(total / limit) }
   })
 }

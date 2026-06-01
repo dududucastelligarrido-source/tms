@@ -17,6 +17,7 @@ import FuelPage from './pages/fuel/FuelPage.js'
 import MaintenancePage from './pages/maintenance/MaintenancePage.js'
 import MaintenanceOverviewPage from './pages/maintenance/MaintenanceOverviewPage.js'
 import KmLogsPage from './pages/trips/KmLogsPage.js'
+import AuditLogPage from './pages/audit/AuditLogPage.js'
 import Layout from './components/Layout.js'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="maintenance" element={<MaintenanceOverviewPage />} />
         <Route path="checklist-templates" element={<ChecklistTemplatesPage />} />
         <Route path="km-logs" element={<KmLogsPage />} />
+        <Route path="audit-logs" element={<AuditLogPage />} />
         <Route path="vehicles/:vehicleId/maintenance" element={<MaintenancePage />} />
       </Route>
     </Routes>

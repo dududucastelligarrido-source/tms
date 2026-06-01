@@ -16,6 +16,7 @@ const CreateSchema = z.object({
   nextServiceKm: z.number().int().min(0).optional(),
   nextServiceDate: z.string().datetime().optional(),
   notes: z.string().optional(),
+  photoUrl: z.string().url().optional(),
 })
 
 export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
@@ -53,13 +54,25 @@ export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get('/vehicles/:vehicleId/maintenance', async (request, reply) => {
     const { vehicleId } = z.object({ vehicleId: z.string().uuid() }).parse(request.params)
+    const query = z.object({
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
+    }).parse(request.query)
+
     const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, tenantId: (request as any).tenantId } })
     if (!vehicle) return reply.status(404).send({ error: 'Veículo não encontrado' })
 
-    return prisma.vehicleMaintenance.findMany({
-      where: { vehicleId },
-      orderBy: { performedAt: 'desc' },
-    })
+    const skip = (query.page - 1) * query.limit
+    const [data, total] = await Promise.all([
+      prisma.vehicleMaintenance.findMany({
+        where: { vehicleId },
+        orderBy: { performedAt: 'desc' },
+        skip,
+        take: query.limit,
+      }),
+      prisma.vehicleMaintenance.count({ where: { vehicleId } }),
+    ])
+    return { data, total, page: query.page, pages: Math.ceil(total / query.limit) }
   })
 
   fastify.post('/vehicles/:vehicleId/maintenance', { preHandler: requireRole('admin') }, async (request, reply) => {
@@ -83,6 +96,7 @@ export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
         nextServiceKm: data.nextServiceKm,
         nextServiceDate: data.nextServiceDate ? new Date(data.nextServiceDate) : undefined,
         notes: data.notes,
+        photoUrl: data.photoUrl,
         createdBy: request.user.sub,
       } as any,
     })

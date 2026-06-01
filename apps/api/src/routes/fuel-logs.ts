@@ -14,6 +14,7 @@ const CreateFuelLogSchema = z.object({
   liters: z.number().positive(),
   pricePerLiter: z.number().positive(),
   station: z.string().optional(),
+  receiptUrl: z.string().url().optional(),
   kmAtFueling: z.number().int().min(0),
 })
 
@@ -83,6 +84,7 @@ export const fuelLogRoutes: FastifyPluginAsync = async (fastify) => {
         pricePerLiter: data.pricePerLiter,
         totalAmount,
         station: data.station,
+        receiptUrl: data.receiptUrl,
         kmAtFueling: data.kmAtFueling,
         ...(kmPerLiter && kmPerLiter > 0 ? { kmPerLiter } : {}),
       } as any,

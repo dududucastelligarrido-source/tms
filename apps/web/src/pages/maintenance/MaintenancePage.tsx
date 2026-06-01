@@ -35,8 +35,12 @@ export default function MaintenancePage() {
   const user = getUser()
   const isAdmin = user?.role === 'admin'
 
-  const { data: vehicles = [] } = useVehicles()
-  const { data: records = [], isLoading } = useMaintenance(vehicleId!)
+  const { data: vehiclesPage } = useVehicles({ limit: 200 })
+  const vehicles = vehiclesPage?.data ?? []
+  const [mainPage, setMainPage] = useState(1)
+  const { data: maintenancePage, isLoading } = useMaintenance(vehicleId!, mainPage)
+  const records = maintenancePage?.data ?? []
+  const mainPages = maintenancePage?.pages ?? 1
   const create = useCreateMaintenance(vehicleId!)
   const update = useUpdateMaintenance(vehicleId!)
   const remove = useDeleteMaintenance(vehicleId!)
@@ -234,6 +238,7 @@ export default function MaintenancePage() {
       ) : (records as any[]).length === 0 ? (
         <p className="text-slate-500 text-sm">Nenhuma manutenção registrada.</p>
       ) : (
+        <>
         <div className="space-y-3">
           {(records as any[]).map((r: any) => (
             <div key={r.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -320,6 +325,22 @@ export default function MaintenancePage() {
             </div>
           ))}
         </div>
+        {mainPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
+            <span className="text-slate-500 text-xs">Página {mainPage} de {mainPages}</span>
+            <div className="flex gap-2">
+              <button onClick={() => setMainPage(p => Math.max(1, p - 1))} disabled={mainPage === 1}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-lg">
+                ← Anterior
+              </button>
+              <button onClick={() => setMainPage(p => Math.min(mainPages, p + 1))} disabled={mainPage === mainPages}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-lg">
+                Próxima →
+              </button>
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   )
