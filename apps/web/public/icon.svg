@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#0f172a"/>
+  <rect x="16" y="16" width="160" height="160" rx="24" fill="#1e293b"/>
+  <!-- caminhão -->
+  <rect x="28" y="90" width="80" height="50" rx="6" fill="#3b82f6"/>
+  <rect x="108" y="106" width="56" height="34" rx="6" fill="#3b82f6"/>
+  <polygon points="108,106 164,106 148,90 108,90" fill="#60a5fa"/>
+  <rect x="118" y="112" width="28" height="18" rx="3" fill="#93c5fd"/>
+  <!-- rodas -->
+  <circle cx="56" cy="148" r="12" fill="#0f172a"/>
+  <circle cx="56" cy="148" r="7" fill="#64748b"/>
+  <circle cx="136" cy="148" r="12" fill="#0f172a"/>
+  <circle cx="136" cy="148" r="7" fill="#64748b"/>
+  <!-- rota -->
+  <circle cx="152" cy="48" r="14" fill="#22c55e"/>
+  <circle cx="152" cy="48" r="7" fill="#0f172a"/>
+  <line x1="40" y1="60" x2="138" y2="48" stroke="#22c55e" stroke-width="4" stroke-dasharray="8,5" stroke-linecap="round"/>
+  <circle cx="40" cy="60" r="6" fill="#22c55e"/>
+</svg>

@@ -13,7 +13,13 @@ export default defineConfig({
         theme_color: '#0f172a',
         background_color: '#020617',
         display: 'standalone',
-        icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+        icons: [
+          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+        ],
+        start_url: '/',
+        scope: '/',
+        description: 'Sistema de Gestão de Transportes',
+        orientation: 'portrait-primary',
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
