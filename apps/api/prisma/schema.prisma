@@ -88,11 +88,12 @@ model Vehicle {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  tenant       Tenant              @relation(fields: [tenantId], references: [id])
-  trips        Trip[]
-  kmLogs       KmLog[]
-  fuelLogs     FuelLog[]
-  maintenances VehicleMaintenance[]
+  tenant           Tenant              @relation(fields: [tenantId], references: [id])
+  trips            Trip[]
+  kmLogs           KmLog[]
+  fuelLogs         FuelLog[]
+  maintenances     VehicleMaintenance[]
+  maintenancePlans MaintenancePlan[]
 
   @@unique([tenantId, plate])
   @@index([tenantId])
@@ -119,6 +120,25 @@ model VehicleMaintenance {
 
   @@index([tenantId, vehicleId])
   @@map("vehicle_maintenances")
+}
+
+// Preventive maintenance schedule: per-vehicle, per-type recurring interval.
+// The next due is computed from the latest VehicleMaintenance of the same type.
+model MaintenancePlan {
+  id           String   @id @default(uuid())
+  tenantId     String
+  vehicleId    String
+  type         String
+  intervalKm   Int?
+  intervalDays Int?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@unique([vehicleId, type])
+  @@index([tenantId, vehicleId])
+  @@map("maintenance_plans")
 }
 
 model Driver {

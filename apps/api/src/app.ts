@@ -14,6 +14,7 @@ import { userRoutes } from './routes/users.js'
 import { reportRoutes } from './routes/reports.js'
 import { fuelLogRoutes } from './routes/fuel-logs.js'
 import { maintenanceRoutes } from './routes/maintenance.js'
+import { maintenancePlanRoutes } from './routes/maintenance-plans.js'
 import { uploadRoutes } from './routes/uploads.js'
 import { alertRoutes } from './routes/alerts.js'
 import { auditLogRoutes } from './routes/audit-logs.js'
@@ -51,6 +52,7 @@ export async function createApp(opts: { logger?: boolean } = {}): Promise<Fastif
   await app.register(reportRoutes, { prefix: '/api/v1' })
   await app.register(fuelLogRoutes, { prefix: '/api/v1' })
   await app.register(maintenanceRoutes, { prefix: '/api/v1' })
+  await app.register(maintenancePlanRoutes, { prefix: '/api/v1' })
   await app.register(uploadRoutes, { prefix: '/api/v1' })
   await app.register(alertRoutes, { prefix: '/api/v1' })
   await app.register(auditLogRoutes, { prefix: '/api/v1' })
