@@ -263,6 +263,7 @@ export default function FuelPage() {
       ) : (
         <>
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase">
@@ -349,6 +350,7 @@ export default function FuelPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
         {logsPages > 1 && (
           <div className="flex items-center justify-between mt-4">

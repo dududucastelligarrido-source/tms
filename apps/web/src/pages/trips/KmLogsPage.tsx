@@ -75,6 +75,7 @@ export default function KmLogsPage() {
         <p className="text-slate-500 text-sm">Nenhum registro encontrado.</p>
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800 text-slate-500 text-xs uppercase">
@@ -125,6 +126,7 @@ export default function KmLogsPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

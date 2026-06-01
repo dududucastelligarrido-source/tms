@@ -53,6 +53,7 @@ export default function MaintenanceOverviewPage() {
         <p className="text-slate-500 text-sm">Nenhum veículo cadastrado.</p>
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800 text-slate-500 text-xs uppercase">
@@ -126,6 +127,7 @@ export default function MaintenanceOverviewPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

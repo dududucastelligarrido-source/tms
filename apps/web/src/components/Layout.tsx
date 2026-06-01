@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { clearTokens, getUser } from '../lib/auth.js'
 import { api } from '../lib/api.js'
 import {
-  LayoutDashboard, Route, Truck, User, Users, BarChart2, Fuel, Wrench, ClipboardList, Gauge, Bell,
+  LayoutDashboard, Route, Truck, User, Users, BarChart2, Fuel, Wrench, ClipboardList, Gauge, Bell, Menu, X,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -139,20 +139,45 @@ function AlertsBadge() {
 }
 
 export default function Layout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
   const user = getUser()
   const isAdmin = user?.role === 'admin'
 
   function logout() { clearTokens(); navigate('/login') }
+  function closeOnMobile() { setSidebarOpen(false) }
 
   const initial = user?.name?.[0]?.toUpperCase() ?? user?.role?.[0]?.toUpperCase() ?? '?'
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100">
-      <aside className="w-52 bg-slate-900 border-r border-slate-800 flex flex-col p-3">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-30 bg-black/60"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-40 w-64 md:w-52
+        bg-slate-900 border-r border-slate-800 flex flex-col p-3
+        transition-transform duration-200 ease-in-out
+        md:relative md:translate-x-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
         <div className="flex items-center justify-between p-2 mb-1">
           <span className="font-bold text-blue-400 text-lg">TMS</span>
-          {isAdmin && <AlertsBadge />}
+          <div className="flex items-center gap-1">
+            {isAdmin && <AlertsBadge />}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="md:hidden p-1 rounded text-slate-500 hover:text-slate-300"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         <nav className="flex flex-col flex-1 overflow-y-auto">
@@ -167,6 +192,7 @@ export default function Layout() {
                 <NavLink
                   key={item.to}
                   to={item.to}
+                  onClick={closeOnMobile}
                   className={({ isActive }) =>
                     `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                       isActive ? 'bg-blue-950 text-blue-300' : 'text-slate-400 hover:text-slate-200'
@@ -195,6 +221,7 @@ export default function Layout() {
           </div>
           <NavLink
             to="/profile"
+            onClick={closeOnMobile}
             className={({ isActive }) =>
               `block px-3 py-2 text-sm rounded-lg transition-colors ${
                 isActive ? 'bg-blue-950 text-blue-300' : 'text-slate-400 hover:text-slate-200'
@@ -212,8 +239,21 @@ export default function Layout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
-        <Outlet />
+      {/* Conteúdo principal */}
+      <main className="flex-1 overflow-auto flex flex-col min-w-0">
+        {/* Topbar mobile */}
+        <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800 sticky top-0 z-20 shrink-0">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+          >
+            <Menu size={18} />
+          </button>
+          <span className="font-bold text-blue-400 text-sm">TMS</span>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <Outlet />
+        </div>
       </main>
     </div>
   )
