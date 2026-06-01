@@ -16,6 +16,7 @@ const CreateSchema = z.object({
   nextServiceKm: z.number().int().min(0).optional(),
   nextServiceDate: z.string().datetime().optional(),
   notes: z.string().optional(),
+  photoUrl: z.string().url().optional(),
 })
 
 export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
@@ -95,6 +96,7 @@ export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
         nextServiceKm: data.nextServiceKm,
         nextServiceDate: data.nextServiceDate ? new Date(data.nextServiceDate) : undefined,
         notes: data.notes,
+        photoUrl: data.photoUrl,
         createdBy: request.user.sub,
       } as any,
     })

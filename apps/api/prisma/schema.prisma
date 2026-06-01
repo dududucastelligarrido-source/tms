@@ -80,6 +80,7 @@ model VehicleMaintenance {
   nextServiceKm   Int?
   nextServiceDate DateTime?
   notes           String?
+  photoUrl        String?
   createdBy       String
   createdAt       DateTime @default(now())
 
@@ -265,6 +266,7 @@ model FuelLog {
   pricePerLiter Decimal  @db.Decimal(10, 4)
   totalAmount   Decimal  @db.Decimal(10, 2)
   station       String?
+  receiptUrl    String?
   kmAtFueling   Int
   kmPerLiter    Decimal? @db.Decimal(10, 3)
   createdAt     DateTime @default(now())

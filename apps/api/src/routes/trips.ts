@@ -108,6 +108,7 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
   // Motorista can only start their own trip; admin can start any trip.
   fastify.patch('/trips/:id/start', async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    const { photoOdometerUrl } = z.object({ photoOdometerUrl: z.string().url().optional() }).parse(request.body ?? {})
     const trip = await prisma.trip.findFirstOrThrow({ where: { id } })
 
     if (request.user.role === 'motorista') {
@@ -134,7 +135,7 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
         data: { status: 'active', startedAt: new Date() },
       }),
       prisma.kmLog.create({
-        data: { tenantId: trip.tenantId, tripId: id, vehicleId: trip.vehicleId, driverId: trip.driverId, kmStart: trip.kmStart, eventType: 'start', loggedAt: new Date() },
+        data: { tenantId: trip.tenantId, tripId: id, vehicleId: trip.vehicleId, driverId: trip.driverId, kmStart: trip.kmStart, eventType: 'start', loggedAt: new Date(), ...(photoOdometerUrl ? { photoOdometerUrl } : {}) },
       }),
     ])
 
@@ -145,8 +146,8 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
   // Motorista can only complete their own trip; admin can complete any trip.
   fastify.patch('/trips/:id/complete', async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
-    let body: { kmEnd: number }
-    try { body = z.object({ kmEnd: z.number().int().min(0) }).parse(request.body) }
+    let body: { kmEnd: number; photoOdometerUrl?: string }
+    try { body = z.object({ kmEnd: z.number().int().min(0), photoOdometerUrl: z.string().url().optional() }).parse(request.body) }
     catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
 
     const trip = await prisma.trip.findFirstOrThrow({ where: { id } })
@@ -184,7 +185,7 @@ export const tripRoutes: FastifyPluginAsync = async (fastify) => {
         data: { status: 'completed', completedAt: new Date(), kmEnd: body.kmEnd },
       }),
       prisma.kmLog.create({
-        data: { tenantId: trip.tenantId, tripId: id, vehicleId: trip.vehicleId, driverId: trip.driverId, kmStart: trip.kmStart, kmEnd: body.kmEnd, eventType: 'end', loggedAt: new Date() },
+        data: { tenantId: trip.tenantId, tripId: id, vehicleId: trip.vehicleId, driverId: trip.driverId, kmStart: trip.kmStart, kmEnd: body.kmEnd, eventType: 'end', loggedAt: new Date(), ...(body.photoOdometerUrl ? { photoOdometerUrl: body.photoOdometerUrl } : {}) },
       }),
       prisma.vehicle.update({
         where: { id: trip.vehicleId },

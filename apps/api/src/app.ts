@@ -14,6 +14,7 @@ import { userRoutes } from './routes/users.js'
 import { reportRoutes } from './routes/reports.js'
 import { fuelLogRoutes } from './routes/fuel-logs.js'
 import { maintenanceRoutes } from './routes/maintenance.js'
+import { uploadRoutes } from './routes/uploads.js'
 
 export async function createApp(opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: opts.logger ?? true })
@@ -46,6 +47,7 @@ export async function createApp(opts: { logger?: boolean } = {}): Promise<Fastif
   await app.register(reportRoutes, { prefix: '/api/v1' })
   await app.register(fuelLogRoutes, { prefix: '/api/v1' })
   await app.register(maintenanceRoutes, { prefix: '/api/v1' })
+  await app.register(uploadRoutes, { prefix: '/api/v1' })
 
   return app
 }
