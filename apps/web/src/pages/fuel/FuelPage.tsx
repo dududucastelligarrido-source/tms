@@ -6,6 +6,7 @@ import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
 import { useConfirm } from '../../components/ConfirmModal.js'
 import { SkeletonTable } from '../../components/Skeleton.js'
+import { useSort, SortIcon } from '../../hooks/useSort.js'
 
 const EMPTY_FORM = {
   vehicleId: '', driverId: '', tripId: '',
@@ -31,8 +32,9 @@ export default function FuelPage() {
     ...(filterStartDate ? { startDate: filterStartDate } : {}),
     ...(filterEndDate ? { endDate: filterEndDate } : {}),
   })
-  const logs = logsResult?.data ?? []
+  const logsRaw = logsResult?.data ?? []
   const logsPages = logsResult?.pages ?? 1
+  const { sorted: logs, key: sortKey, dir: sortDir, toggle: sortToggle } = useSort(logsRaw as any[], 'loggedAt', 'desc')
   const { data: vehicles = [] } = useVehicles()
   const { data: drivers = [] } = useDrivers()
   const createLog = useCreateFuelLog()
@@ -267,15 +269,25 @@ export default function FuelPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400 text-xs uppercase">
-                <th className="text-left px-4 py-3">Data</th>
-                <th className="text-left px-4 py-3">Veículo</th>
-                <th className="text-left px-4 py-3">Motorista</th>
-                <th className="text-left px-4 py-3">Tipo</th>
-                <th className="text-right px-4 py-3">Litros</th>
-                <th className="text-right px-4 py-3">R$/L</th>
-                <th className="text-right px-4 py-3">Total</th>
-                <th className="text-right px-4 py-3">KM/L</th>
-                <th className="text-right px-4 py-3">KM</th>
+                {[
+                  { label: 'Data', k: 'loggedAt', align: 'left' },
+                  { label: 'Veículo', k: null, align: 'left' },
+                  { label: 'Motorista', k: null, align: 'left' },
+                  { label: 'Tipo', k: 'fuelType', align: 'left' },
+                  { label: 'Litros', k: 'liters', align: 'right' },
+                  { label: 'R$/L', k: 'pricePerLiter', align: 'right' },
+                  { label: 'Total', k: 'totalAmount', align: 'right' },
+                  { label: 'KM/L', k: 'kmPerLiter', align: 'right' },
+                  { label: 'KM', k: 'kmAtFueling', align: 'right' },
+                ].map(col => (
+                  <th key={col.label}
+                    className={`px-4 py-3 ${col.align === 'right' ? 'text-right' : 'text-left'} ${col.k ? 'cursor-pointer hover:text-slate-200 select-none' : ''}`}
+                    onClick={() => col.k && sortToggle(col.k as any)}
+                  >
+                    {col.label}
+                    {col.k && <SortIcon active={sortKey === col.k} dir={sortDir} />}
+                  </th>
+                ))}
                 {isAdmin && <th className="px-4 py-3" />}
               </tr>
             </thead>

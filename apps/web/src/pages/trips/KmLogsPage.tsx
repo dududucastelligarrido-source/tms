@@ -5,6 +5,7 @@ import { api } from '../../lib/api.js'
 import { useVehicles } from '../../hooks/useVehicles.js'
 import { useDrivers } from '../../hooks/useDrivers.js'
 import { SkeletonTable } from '../../components/Skeleton.js'
+import { useSort, SortIcon } from '../../hooks/useSort.js'
 
 const EVENT_LABELS: Record<string, string> = {
   start: 'Saída',
@@ -25,10 +26,11 @@ export default function KmLogsPage() {
   if (filterDriverId) params.set('driverId', filterDriverId)
   const qs = params.toString()
 
-  const { data: logs = [], isLoading } = useQuery({
+  const { data: logsRaw = [], isLoading } = useQuery({
     queryKey: ['km-logs', filterVehicleId, filterDriverId],
     queryFn: () => api.get<any[]>(`/km-logs${qs ? `?${qs}` : ''}`),
   })
+  const { sorted: logs, key: sortKey, dir: sortDir, toggle: sortToggle } = useSort(logsRaw as any[], 'loggedAt', 'desc')
 
   const totalKm = (logs as any[]).reduce((s, l) => s + ((l.kmEnd ?? 0) - (l.kmStart ?? 0)), 0)
 
@@ -79,13 +81,23 @@ export default function KmLogsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800 text-slate-500 text-xs uppercase">
-                <th className="text-left px-4 py-3">Data</th>
-                <th className="text-left px-4 py-3">Evento</th>
-                <th className="text-left px-4 py-3">Veículo</th>
-                <th className="text-left px-4 py-3">Motorista</th>
-                <th className="text-right px-4 py-3">KM Inicial</th>
-                <th className="text-right px-4 py-3">KM Final</th>
-                <th className="text-right px-4 py-3">Percorrido</th>
+                {[
+                  { label: 'Data', k: 'loggedAt', align: 'left' },
+                  { label: 'Evento', k: 'eventType', align: 'left' },
+                  { label: 'Veículo', k: null, align: 'left' },
+                  { label: 'Motorista', k: null, align: 'left' },
+                  { label: 'KM Inicial', k: 'kmStart', align: 'right' },
+                  { label: 'KM Final', k: 'kmEnd', align: 'right' },
+                  { label: 'Percorrido', k: null, align: 'right' },
+                ].map(col => (
+                  <th key={col.label}
+                    className={`px-4 py-3 ${col.align === 'right' ? 'text-right' : 'text-left'} ${col.k ? 'cursor-pointer hover:text-slate-200 select-none' : ''}`}
+                    onClick={() => col.k && sortToggle(col.k as any)}
+                  >
+                    {col.label}
+                    {col.k && <SortIcon active={sortKey === col.k} dir={sortDir} />}
+                  </th>
+                ))}
                 <th className="px-4 py-3" />
               </tr>
             </thead>

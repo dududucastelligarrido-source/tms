@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api.js'
 import { SkeletonTable } from '../../components/Skeleton.js'
+import { useSort, SortIcon } from '../../hooks/useSort.js'
 
 const TYPE_LABELS: Record<string, string> = {
   troca_oleo: 'Troca de Óleo', pneu: 'Pneu', freio: 'Freio', filtro: 'Filtro',
@@ -24,6 +25,8 @@ export default function MaintenanceOverviewPage() {
   const overdue = (items as any[]).filter(i => i.status === 'overdue')
   const warning = (items as any[]).filter(i => i.status === 'warning')
   const ok = (items as any[]).filter(i => i.status === 'ok')
+  const allSorted = [...overdue, ...warning, ...ok]
+  const { sorted, key: sortKey, dir: sortDir, toggle: sortToggle } = useSort(allSorted, null)
 
   return (
     <div className="p-6">
@@ -57,17 +60,27 @@ export default function MaintenanceOverviewPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800 text-slate-500 text-xs uppercase">
-                <th className="text-left px-4 py-3">Veículo</th>
-                <th className="text-left px-4 py-3">KM Atual</th>
-                <th className="text-left px-4 py-3">Última Manutenção</th>
-                <th className="text-left px-4 py-3">Próxima (KM)</th>
-                <th className="text-left px-4 py-3">Próxima (Data)</th>
-                <th className="text-left px-4 py-3">Status</th>
+                {[
+                  { label: 'Veículo', k: null },
+                  { label: 'KM Atual', k: 'kmRestantes' },
+                  { label: 'Última Manutenção', k: null },
+                  { label: 'Próxima (KM)', k: 'kmRestantes' },
+                  { label: 'Próxima (Data)', k: 'diasRestantes' },
+                  { label: 'Status', k: 'status' },
+                ].map(col => (
+                  <th key={col.label}
+                    className={`text-left px-4 py-3 ${col.k ? 'cursor-pointer hover:text-slate-200 select-none' : ''}`}
+                    onClick={() => col.k && sortToggle(col.k as any)}
+                  >
+                    {col.label}
+                    {col.k && <SortIcon active={sortKey === col.k} dir={sortDir} />}
+                  </th>
+                ))}
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
-              {[...overdue, ...warning, ...ok].map((item: any) => {
+              {sorted.map((item: any) => {
                 const { vehicle, latest, kmRestantes, diasRestantes, status } = item
                 const cfg = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG]
                 return (
