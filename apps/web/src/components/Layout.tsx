@@ -4,14 +4,20 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { clearTokens, getUser } from '../lib/auth.js'
 import { api } from '../lib/api.js'
 import { useOfflineStatus } from '../hooks/useOfflineStatus.js'
+import { clearFailed } from '../lib/offlineQueue.js'
 import {
   LayoutDashboard, Route, Truck, User, Users, BarChart2, Fuel, Wrench, ClipboardList, Gauge, Bell, Menu, X,
-  WifiOff, RefreshCw, ScrollText,
+  WifiOff, RefreshCw, ScrollText, AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 
+// pt-BR: "1 ação" / "N ações"
+function acoes(n: number) {
+  return n === 1 ? '1 ação' : `${n} ações`
+}
+
 function OfflineBanner() {
-  const { online, pending } = useOfflineStatus()
+  const { online, pending, failed } = useOfflineStatus()
   const qc = useQueryClient()
 
   useEffect(() => {
@@ -20,22 +26,28 @@ function OfflineBanner() {
     return () => window.removeEventListener('offline-queue-flushed', onFlushed)
   }, [qc])
 
-  if (online && pending === 0) return null
+  if (online && pending === 0 && failed === 0) return null
 
   return (
-    <div className={`flex items-center justify-center gap-2 px-4 py-2 text-xs font-medium ${
-      online ? 'bg-amber-950/80 text-amber-300' : 'bg-red-950/80 text-red-300'
-    }`}>
-      {online ? (
-        <>
-          <RefreshCw size={13} className="animate-spin" />
-          Sincronizando {pending} ação{pending > 1 ? 'ões' : ''} pendente{pending > 1 ? 's' : ''}...
-        </>
-      ) : (
-        <>
+    <div className="text-xs font-medium">
+      {!online && (
+        <div className="flex items-center justify-center gap-2 px-4 py-2 bg-red-950/80 text-red-300">
           <WifiOff size={13} />
-          Você está offline. {pending > 0 ? `${pending} ação${pending > 1 ? 'ões' : ''} será${pending > 1 ? 'ão' : ''} enviada${pending > 1 ? 's' : ''} ao reconectar.` : 'As ações de campo serão salvas localmente.'}
-        </>
+          Você está offline. {pending > 0 ? `${acoes(pending)} pendente${pending > 1 ? 's' : ''} ao reconectar.` : 'As ações de campo serão salvas localmente.'}
+        </div>
+      )}
+      {online && pending > 0 && (
+        <div className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-950/80 text-amber-300">
+          <RefreshCw size={13} className="animate-spin" />
+          Sincronizando {acoes(pending)} pendente{pending > 1 ? 's' : ''}...
+        </div>
+      )}
+      {failed > 0 && (
+        <div className="flex items-center justify-center gap-2 px-4 py-2 bg-red-900/80 text-red-200">
+          <AlertTriangle size={13} />
+          {acoes(failed)} não pôde ser sincronizada (rejeitada pelo servidor).
+          <button onClick={() => { clearFailed() }} className="underline hover:text-white ml-1">Dispensar</button>
+        </div>
       )}
     </div>
   )

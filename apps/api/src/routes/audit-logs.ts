@@ -25,8 +25,10 @@ export const auditLogRoutes: FastifyPluginAsync = async (fastify) => {
     if (query.action) where.action = query.action
     if (query.userId) where.userId = query.userId
     if (query.startDate || query.endDate) {
+      // Symmetric, full-day UTC bounds (00:00:00 → 23:59:59.999) so both ends
+      // cover the whole selected day instead of the asymmetric bare-start case.
       where.createdAt = {
-        ...(query.startDate ? { gte: new Date(query.startDate) } : {}),
+        ...(query.startDate ? { gte: new Date(query.startDate + 'T00:00:00.000Z') } : {}),
         ...(query.endDate ? { lte: new Date(query.endDate + 'T23:59:59.999Z') } : {}),
       }
     }

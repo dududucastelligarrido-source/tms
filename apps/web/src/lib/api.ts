@@ -1,5 +1,5 @@
 import { getToken, getRefreshToken, setTokens, clearTokens } from './auth.js'
-import { enqueue } from './offlineQueue.js'
+import { enqueue, newIdempotencyKey } from './offlineQueue.js'
 
 export interface QueuedResult { queued: true }
 export function isQueued(r: unknown): r is QueuedResult {
@@ -89,16 +89,24 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 // If offline, the request is queued and replayed on reconnect; returns { queued: true }.
 // If online, behaves like a normal request but falls back to the queue on network failure.
 async function requestQueued<T>(method: 'POST' | 'PATCH' | 'DELETE', path: string, body: unknown, label: string): Promise<T | QueuedResult> {
+  // Stable key shared between the online attempt and any queued replay, so a
+  // mutation that commits but whose response is lost is never duplicated.
+  const idempotencyKey = newIdempotencyKey()
+
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    enqueue({ method, path, body, label })
+    enqueue({ id: idempotencyKey, method, path, body, label })
     return { queued: true }
   }
   try {
-    return await request<T>(path, { method, body: body != null ? JSON.stringify(body) : undefined })
+    return await request<T>(path, {
+      method,
+      body: body != null ? JSON.stringify(body) : undefined,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    })
   } catch (err: any) {
-    // Network failure (server unreachable) → defer. Re-throw real HTTP/validation errors.
+    // Network failure (server unreachable) → defer with the same key. Re-throw real HTTP/validation errors.
     if (err instanceof TypeError || err?.message === 'Failed to fetch') {
-      enqueue({ method, path, body, label })
+      enqueue({ id: idempotencyKey, method, path, body, label })
       return { queued: true }
     }
     throw err

@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/authenticate.js'
 import { tenantScope } from '../middleware/tenant-scope.js'
 import { requireRole } from '../middleware/require-role.js'
 import { prisma } from '../plugins/prisma.js'
+import { getIdempotencyKey, alreadyProcessed } from '../lib/idempotency.js'
 
 const CreateCostSchema = z.object({
   category: z.enum(['fuel', 'toll', 'meal', 'maintenance', 'other']),
@@ -33,10 +34,22 @@ export const costRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(422).send({ error: 'Cannot add cost to cancelled trip' })
     }
 
-    const cost = await prisma.tripCost.create({
-      data: { ...data, tripId, createdBy: request.user.sub, paidAt: new Date(data.paidAt) } as any,
-    })
-    return reply.status(201).send(cost)
+    const idemKey = getIdempotencyKey(request)
+    if (idemKey && await alreadyProcessed(idemKey)) return reply.status(200).send({ idempotent: true })
+
+    try {
+      const cost = await prisma.$transaction(async (tx) => {
+        const created = await tx.tripCost.create({
+          data: { ...data, tripId, createdBy: request.user.sub, paidAt: new Date(data.paidAt) } as any,
+        })
+        if (idemKey) await tx.idempotencyKey.create({ data: { key: idemKey } })
+        return created
+      })
+      return reply.status(201).send(cost)
+    } catch (err: any) {
+      if (err?.code === 'P2002' && idemKey) return reply.status(200).send({ idempotent: true })
+      throw err
+    }
   })
 
   fastify.delete('/trips/:tripId/costs/:costId', { preHandler: requireRole('admin') }, async (request, reply) => {

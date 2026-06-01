@@ -2,6 +2,7 @@ import { getToken, getRefreshToken, setTokens, clearTokens } from './auth.js'
 
 const BASE = `${import.meta.env.VITE_API_URL ?? ''}/api/v1`
 const STORAGE_KEY = 'tms_offline_queue'
+const FAILED_KEY = 'tms_offline_failed'
 
 export interface QueuedMutation {
   id: string
@@ -10,6 +11,12 @@ export interface QueuedMutation {
   body?: unknown
   label: string
   queuedAt: number
+}
+
+export interface FailedMutation extends QueuedMutation {
+  failedAt: number
+  status: number
+  error: string
 }
 
 type Listener = () => void
@@ -42,10 +49,39 @@ export function getPendingCount(): number {
   return getQueue().length
 }
 
-export function enqueue(mutation: Omit<QueuedMutation, 'id' | 'queuedAt'>): QueuedMutation {
+export function getFailed(): FailedMutation[] {
+  try {
+    return JSON.parse(localStorage.getItem(FAILED_KEY) ?? '[]')
+  } catch {
+    return []
+  }
+}
+
+export function getFailedCount(): number {
+  return getFailed().length
+}
+
+export function clearFailed() {
+  localStorage.removeItem(FAILED_KEY)
+  notify()
+}
+
+function recordFailure(item: QueuedMutation, status: number, error: string) {
+  const failed = getFailed()
+  failed.push({ ...item, failedAt: Date.now(), status, error })
+  localStorage.setItem(FAILED_KEY, JSON.stringify(failed))
+}
+
+// Generates a stable idempotency key — reused for the online attempt and any
+// later replays of the same mutation, so the server can dedupe retries.
+export function newIdempotencyKey(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+export function enqueue(mutation: Omit<QueuedMutation, 'id' | 'queuedAt'> & { id?: string }): QueuedMutation {
   const item: QueuedMutation = {
     ...mutation,
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: mutation.id ?? newIdempotencyKey(),
     queuedAt: Date.now(),
   }
   setQueue([...getQueue(), item])
@@ -70,12 +106,17 @@ async function refreshToken(): Promise<string | null> {
   }
 }
 
-async function sendOne(item: QueuedMutation): Promise<boolean> {
+type SendResult = 'sent' | 'failed' // 'failed' = permanently rejected (4xx), moved to the failed list
+
+async function sendOne(item: QueuedMutation): Promise<SendResult> {
   const token = getToken()
   const doFetch = (authToken: string | null) => fetch(`${BASE}${item.path}`, {
     method: item.method,
     headers: {
       'Content-Type': 'application/json',
+      // Stable key lets the server dedupe a mutation that committed but whose
+      // response was lost, so a replay never creates a duplicate record.
+      'Idempotency-Key': item.id,
       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     },
     body: item.body != null ? JSON.stringify(item.body) : undefined,
@@ -87,9 +128,13 @@ async function sendOne(item: QueuedMutation): Promise<boolean> {
     if (!newToken) { clearTokens(); throw new Error('auth') }
     res = await doFetch(newToken)
   }
-  // 2xx → success; 4xx (except 401) → drop the item (it would never succeed); 5xx → keep for retry
-  if (res.ok) return true
-  if (res.status >= 400 && res.status < 500) return true // drop bad requests so the queue doesn't stall
+  // 2xx → success; 4xx (except 401) → permanent rejection, surface to user; 5xx → keep for retry
+  if (res.ok) return 'sent'
+  if (res.status >= 400 && res.status < 500) {
+    const msg = await res.json().then(b => b?.error).catch(() => null)
+    recordFailure(item, res.status, typeof msg === 'string' ? msg : `HTTP ${res.status}`)
+    return 'failed'
+  }
   throw new Error(`HTTP ${res.status}`)
 }
 
@@ -104,21 +149,24 @@ export async function flushQueue(): Promise<number> {
   if (flushing || !navigator.onLine) return 0
   flushing = true
   let drained = 0
+  let failed = 0
   try {
     let queue = getQueue()
     while (queue.length > 0) {
       const item = queue[0]
       try {
-        await sendOne(item)
+        const result = await sendOne(item)
+        if (result === 'failed') failed++
+        else drained++
       } catch (err: any) {
         if (err?.message === 'auth') { flushing = false; return drained }
         break // network/5xx — stop and retry later
       }
       queue = getQueue().filter(q => q.id !== item.id)
       setQueue(queue)
-      drained++
     }
     if (drained > 0) window.dispatchEvent(new CustomEvent('offline-queue-flushed', { detail: { drained } }))
+    if (failed > 0) window.dispatchEvent(new CustomEvent('offline-queue-failed', { detail: { failed } }))
     return drained
   } finally {
     flushing = false
