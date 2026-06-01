@@ -29,31 +29,40 @@ export function parseAuditTarget(method: string, url: string): AuditTarget | nul
   const entity = segments[0]
   if (SKIP_ENTITIES.has(entity)) return null
 
-  // Find a trailing sub-action segment (e.g. /trips/:id/start)
+  // Action: a trailing sub-action segment (e.g. /trips/:id/start) wins over the verb.
   const last = segments[segments.length - 1]
-  let action = METHOD_ACTION[method] ?? method.toLowerCase()
-  if (SUB_ACTIONS.has(last)) action = last
+  const action = SUB_ACTIONS.has(last) ? last : (METHOD_ACTION[method] ?? method.toLowerCase())
 
-  // entityId = the first UUID segment, if any.
-  const entityId = segments.find(isUuid) ?? null
+  // Entity = the LAST noun segment (non-UUID, non-sub-action), so nested resources
+  // like /trips/:id/costs/:costId resolve to 'costs' rather than 'trips'.
+  const nouns = segments.filter(s => !isUuid(s) && !SUB_ACTIONS.has(s))
+  const resolvedEntity = nouns[nouns.length - 1] ?? entity
 
-  // For nested resources (e.g. /trips/:id/costs), prefer the nested noun as entity.
-  let resolvedEntity = entity
-  if (segments.length >= 3 && !SUB_ACTIONS.has(last) && !isUuid(last)) {
-    resolvedEntity = last // e.g. 'maintenance', 'costs', 'checklists'
-  }
+  // entityId = the LAST UUID segment — the id of the resource actually acted on
+  // (the cost in /trips/:id/costs/:costId, not the parent trip).
+  let entityId: string | null = null
+  for (const s of segments) if (isUuid(s)) entityId = s
 
   return { entity: resolvedEntity, entityId, action }
+}
+
+// Recursively redacts sensitive keys at any depth before persisting the snapshot.
+function redact(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redact)
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = SENSITIVE_KEYS.includes(k) ? '***' : redact(v)
+    }
+    return out
+  }
+  return value
 }
 
 function sanitize(body: unknown): string | null {
   if (!body || typeof body !== 'object') return null
   try {
-    const clone: Record<string, unknown> = { ...(body as Record<string, unknown>) }
-    for (const key of SENSITIVE_KEYS) {
-      if (key in clone) clone[key] = '***'
-    }
-    const json = JSON.stringify(clone)
+    const json = JSON.stringify(redact(body))
     return json.length > 2000 ? json.slice(0, 2000) + '…' : json
   } catch {
     return null

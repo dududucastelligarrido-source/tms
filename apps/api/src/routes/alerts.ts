@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import type { FastifyPluginAsync } from 'fastify'
 import { authenticate } from '../middleware/authenticate.js'
 import { tenantScope } from '../middleware/tenant-scope.js'
@@ -5,6 +6,14 @@ import { requireRole } from '../middleware/require-role.js'
 import { prisma } from '../plugins/prisma.js'
 import { computeTenantAlerts } from '../lib/alerts.js'
 import { sendAlertDigest, isEmailConfigured } from '../lib/email.js'
+
+// Constant-time comparison to avoid leaking the cron secret via response timing.
+function secretMatches(provided: unknown, expected: string | undefined): boolean {
+  if (!expected || typeof provided !== 'string') return false
+  const a = Buffer.from(provided)
+  const b = Buffer.from(expected)
+  return a.length === b.length && timingSafeEqual(a, b)
+}
 
 async function adminEmails(tenantId: string): Promise<string[]> {
   const admins = await prisma.user.findMany({
@@ -18,8 +27,7 @@ export const alertRoutes: FastifyPluginAsync = async (fastify) => {
   // ── Cron endpoint (no JWT — protected by a shared secret) ──────────────────
   // Sends the daily digest for every active tenant. Intended for Railway cron.
   fastify.post('/alerts/run', async (request, reply) => {
-    const secret = request.headers['x-cron-secret']
-    if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+    if (!secretMatches(request.headers['x-cron-secret'], process.env.CRON_SECRET)) {
       return reply.status(401).send({ error: 'Unauthorized' })
     }
     if (!isEmailConfigured()) {

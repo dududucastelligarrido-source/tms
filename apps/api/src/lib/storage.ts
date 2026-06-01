@@ -34,7 +34,10 @@ export async function createPresignedUpload(opts: {
   contentType: string
   filename: string
 }) {
-  const ext = opts.filename.split('.').pop()?.toLowerCase() ?? 'jpg'
+  // Sanitize the extension: only allow a short alphanumeric suffix so a crafted
+  // filename can't inject path separators / traversal into the object key.
+  const rawExt = opts.filename.split('.').pop()?.toLowerCase() ?? ''
+  const ext = /^[a-z0-9]{1,5}$/.test(rawExt) ? rawExt : 'jpg'
   const key = `${opts.tenantId}/${opts.context}/${randomUUID()}.${ext}`
   const client = getClient()
 
