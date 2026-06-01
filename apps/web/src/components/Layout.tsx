@@ -68,6 +68,7 @@ const navGroups: NavGroup[] = [
       { to: '/fuel',                label: 'Combustível', icon: Fuel         },
       { to: '/maintenance',         label: 'Manutenções', icon: Wrench       },
       { to: '/checklist-templates', label: 'Checklists',  icon: ClipboardList },
+      { to: '/audit-logs',          label: 'Auditoria',   icon: ScrollText   },
     ],
   },
 ]
