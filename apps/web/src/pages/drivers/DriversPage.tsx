@@ -5,6 +5,7 @@ import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
 import { useConfirm } from '../../components/ConfirmModal.js'
+import { SkeletonList } from '../../components/Skeleton.js'
 import { isValidCPF } from '../../lib/validation.js'
 
 const CNH_CATEGORIES = ['A', 'B', 'C', 'D', 'E']
@@ -125,7 +126,7 @@ export default function DriversPage() {
       )}
 
       {isLoading ? (
-        <div className="text-slate-400 text-sm">Carregando...</div>
+        <SkeletonList />
       ) : (
         <>
         {/* Painel de alertas de CNH */}

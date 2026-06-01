@@ -4,6 +4,7 @@ import { api } from '../../lib/api.js'
 import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
 import { useConfirm } from '../../components/ConfirmModal.js'
+import { SkeletonCard } from '../../components/Skeleton.js'
 
 const TYPE_LABELS: Record<string, string> = {
   departure: 'Saída', arrival: 'Chegada', driver_change: 'Troca de Motorista',
@@ -170,7 +171,7 @@ export default function ChecklistTemplatesPage() {
       )}
 
       {isLoading ? (
-        <p className="text-slate-400 text-sm">Carregando...</p>
+        <div className="space-y-4"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div>
       ) : (templates as any[]).length === 0 ? (
         <p className="text-slate-500 text-sm">Nenhum template cadastrado.</p>
       ) : (

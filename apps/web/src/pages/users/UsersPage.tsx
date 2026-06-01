@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api.js'
 import { useToast } from '../../components/Toast.js'
+import { SkeletonList } from '../../components/Skeleton.js'
 
 type User = { id: string; name: string; email: string; role: string; createdAt: string }
 
@@ -94,7 +95,7 @@ export default function UsersPage() {
       )}
 
       {isLoading ? (
-        <div className="text-slate-400 text-sm">Carregando...</div>
+        <SkeletonList />
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
           {(users as User[]).map(u => (

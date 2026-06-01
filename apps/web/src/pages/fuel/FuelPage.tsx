@@ -5,6 +5,7 @@ import { useDrivers } from '../../hooks/useDrivers.js'
 import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
 import { useConfirm } from '../../components/ConfirmModal.js'
+import { SkeletonTable } from '../../components/Skeleton.js'
 
 const EMPTY_FORM = {
   vehicleId: '', driverId: '', tripId: '',
@@ -256,7 +257,7 @@ export default function FuelPage() {
       )}
 
       {isLoading ? (
-        <p className="text-slate-400">Carregando...</p>
+        <SkeletonTable rows={8} cols={9} />
       ) : (logs as any[]).length === 0 ? (
         <p className="text-slate-500 text-sm">Nenhum abastecimento registrado.</p>
       ) : (

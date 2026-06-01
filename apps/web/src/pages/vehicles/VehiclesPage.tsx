@@ -7,6 +7,7 @@ import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
 import { useConfirm } from '../../components/ConfirmModal.js'
 import { isValidPlate } from '../../lib/validation.js'
+import { SkeletonList } from '../../components/Skeleton.js'
 
 const TYPE_LABELS: Record<string, string> = { caminhao: 'Caminhão', van: 'Van', utilitario: 'Utilitário', carreta: 'Carreta', outro: 'Outro' }
 const emptyForm = { plate: '', brand: '', model: '', year: new Date().getFullYear(), currentKm: 0, type: 'caminhao' }
@@ -125,7 +126,7 @@ export default function VehiclesPage() {
       )}
 
       {isLoading ? (
-        <div className="text-slate-400 text-sm">Carregando...</div>
+        <SkeletonList />
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
           {(vehicles as any[])

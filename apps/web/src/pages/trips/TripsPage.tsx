@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTrips } from '../../hooks/useTrips.js'
 import { useVehicles } from '../../hooks/useVehicles.js'
 import { getUser } from '../../lib/auth.js'
+import { SkeletonList } from '../../components/Skeleton.js'
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Rascunho', active: 'Em Curso', completed: 'Concluída', cancelled: 'Cancelada',
@@ -159,7 +160,7 @@ export default function TripsPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-slate-400 text-sm">Carregando...</div>
+        <SkeletonList rows={8} />
       ) : (
         <>
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">

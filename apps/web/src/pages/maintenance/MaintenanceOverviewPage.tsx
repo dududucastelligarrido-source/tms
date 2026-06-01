@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api.js'
+import { SkeletonTable } from '../../components/Skeleton.js'
 
 const TYPE_LABELS: Record<string, string> = {
   troca_oleo: 'Troca de Óleo', pneu: 'Pneu', freio: 'Freio', filtro: 'Filtro',
@@ -47,7 +48,7 @@ export default function MaintenanceOverviewPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-slate-400 text-sm">Carregando...</p>
+        <SkeletonTable rows={6} cols={6} />
       ) : (items as any[]).length === 0 ? (
         <p className="text-slate-500 text-sm">Nenhum veículo cadastrado.</p>
       ) : (

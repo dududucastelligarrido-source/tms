@@ -9,6 +9,7 @@ import FreightCalculator from '../../components/FreightCalculator.js'
 import { getUser } from '../../lib/auth.js'
 import { useToast } from '../../components/Toast.js'
 import { useConfirm } from '../../components/ConfirmModal.js'
+import { SkeletonCard } from '../../components/Skeleton.js'
 
 const COST_CATEGORIES: Record<string, string> = {
   fuel: 'Combustível', toll: 'Pedágio', meal: 'Alimentação', maintenance: 'Manutenção', other: 'Outro',
@@ -121,7 +122,7 @@ export default function TripDetailPage() {
     }
   }
 
-  if (isLoading) return <div className="p-6 text-slate-400">Carregando...</div>
+  if (isLoading) return <div className="p-6 max-w-2xl space-y-4"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div>
   if (!trip) return <div className="p-6 text-slate-400">Viagem não encontrada.</div>
 
   const t = trip as any

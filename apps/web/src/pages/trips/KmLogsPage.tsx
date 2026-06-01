@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api.js'
 import { useVehicles } from '../../hooks/useVehicles.js'
 import { useDrivers } from '../../hooks/useDrivers.js'
+import { SkeletonTable } from '../../components/Skeleton.js'
 
 const EVENT_LABELS: Record<string, string> = {
   start: 'Saída',
@@ -69,7 +70,7 @@ export default function KmLogsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-slate-400 text-sm">Carregando...</p>
+        <SkeletonTable rows={8} cols={7} />
       ) : (logs as any[]).length === 0 ? (
         <p className="text-slate-500 text-sm">Nenhum registro encontrado.</p>
       ) : (
