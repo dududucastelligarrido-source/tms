@@ -5,11 +5,6 @@ RUN npm install -g pnpm
 
 WORKDIR /app
 
-# Placeholders so prisma generate can validate schema at build time;
-# real values come from Render environment variables at runtime.
-ENV DATABASE_URL="postgresql://p:p@localhost/p"
-ENV DIRECT_URL="postgresql://p:p@localhost/p"
-
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
 COPY packages/ ./packages/
 COPY apps/api/ ./apps/api/
@@ -18,7 +13,11 @@ RUN pnpm install --frozen-lockfile
 
 WORKDIR /app/apps/api
 
-RUN pnpm db:generate && pnpm build
+# Dummy DB URLs satisfy prisma generate's schema validation at build time only.
+# They are NOT persisted as runtime ENV, so a missing DATABASE_URL/DIRECT_URL
+# in production fails loudly instead of silently connecting to localhost.
+RUN DATABASE_URL="postgresql://p:p@localhost/p" DIRECT_URL="postgresql://p:p@localhost/p" pnpm db:generate \
+  && pnpm build
 
 EXPOSE 3001
 
