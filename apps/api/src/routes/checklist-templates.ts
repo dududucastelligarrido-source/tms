@@ -56,8 +56,8 @@ export const checklistTemplateRoutes: FastifyPluginAsync = async (fastify) => {
     const { items, ...templateData } = data
 
     if (items) {
-      await prisma.checklistTemplateItem.deleteMany({ where: { templateId: id } })
-      await prisma.checklistTemplateItem.createMany({
+      await prisma.checklistItem.deleteMany({ where: { templateId: id } })
+      await prisma.checklistItem.createMany({
         data: items.map(item => ({ ...item, templateId: id })),
       })
     }

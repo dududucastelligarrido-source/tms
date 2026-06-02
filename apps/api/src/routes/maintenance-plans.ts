@@ -57,13 +57,14 @@ export const maintenancePlanRoutes: FastifyPluginAsync = async (fastify) => {
     const plan = await prisma.maintenancePlan.findFirst({ where: { id, tenantId: (request as any).tenantId } })
     if (!plan) return reply.status(404).send({ error: 'Plano não encontrado' })
 
-    let data: Partial<z.infer<typeof PlanSchema>> & { isActive?: boolean }
+    const UpdateSchema = z.object({
+      intervalKm: z.number().int().min(1).nullable().optional(),
+      intervalDays: z.number().int().min(1).nullable().optional(),
+      isActive: z.boolean().optional(),
+    })
+    let data: z.infer<typeof UpdateSchema>
     try {
-      data = z.object({
-        intervalKm: z.number().int().min(1).nullable().optional(),
-        intervalDays: z.number().int().min(1).nullable().optional(),
-        isActive: z.boolean().optional(),
-      }).parse(request.body)
+      data = UpdateSchema.parse(request.body)
     } catch (err: any) { return reply.status(400).send({ error: err.issues ?? err.message }) }
 
     return prisma.maintenancePlan.update({ where: { id }, data: data as any })
