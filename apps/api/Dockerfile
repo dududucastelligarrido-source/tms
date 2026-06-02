@@ -22,4 +22,5 @@ RUN pnpm db:generate && pnpm build
 
 EXPOSE 3001
 
-CMD ["node", "dist/server.js"]
+# Apply pending migrations, then start (migrate deploy is a no-op when up to date).
+CMD ["pnpm", "start:prod"]
