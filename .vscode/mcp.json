@@ -14,6 +14,10 @@
       "headers": {
         "Authorization": "Bearer ${input:render-api-key}"
       }
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp"
     }
   }
 }
