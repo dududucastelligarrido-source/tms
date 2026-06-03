@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client'
 import { hash } from '@node-rs/argon2'
-
-const prisma = new PrismaClient()
+import { prisma } from './client.js'
 const email = process.argv[2]
 const newPassword = process.argv[3]
 

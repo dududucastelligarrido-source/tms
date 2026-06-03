@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from './client.js'
 
 function daysAgo(n: number, hour = 8): Date {
   const d = new Date()

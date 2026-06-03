@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client'
 import { hash } from '@node-rs/argon2'
-
-const prisma = new PrismaClient()
+import { prisma } from './client.js'
 
 async function main() {
   const existing = await prisma.tenant.findFirst({ where: { cnpj: '00000000000100' } })
