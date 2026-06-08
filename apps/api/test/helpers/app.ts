@@ -7,10 +7,15 @@ export async function createTestApp(): Promise<FastifyInstance> {
 }
 
 export async function cleanDb() {
+  // Order matters: delete children before parents to respect FK constraints.
   await prisma.checklistResponse.deleteMany()
   await prisma.tripChecklist.deleteMany()
   await prisma.kmLog.deleteMany()
   await prisma.tripCost.deleteMany()
+  await prisma.fuelLog.deleteMany()
+  await prisma.auditLog.deleteMany()
+  await prisma.maintenancePlan.deleteMany()
+  await prisma.vehicleMaintenance.deleteMany()
   await prisma.trip.deleteMany()
   await prisma.driver.deleteMany()
   await prisma.vehicle.deleteMany()
@@ -18,4 +23,5 @@ export async function cleanDb() {
   await prisma.checklistTemplate.deleteMany()
   await prisma.user.deleteMany()
   await prisma.tenant.deleteMany()
+  await prisma.idempotencyKey.deleteMany()
 }

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import fp from 'fastify-plugin'
 import type { FastifyPluginAsync } from 'fastify'
 import { tenantStorage } from '../middleware/tenant-scope.js'
@@ -8,45 +9,54 @@ const TENANT_SCOPED_MODELS = [
   'KmLog', 'ChecklistTemplate', 'TripChecklist',
 ]
 
+const READ_OPS = ['findMany', 'findFirst', 'findFirstOrThrow', 'count', 'aggregate']
+// findUnique(OrThrow) accept the extra tenantId filter via `extendedWhereUnique`
+// (GA since Prisma 5): a wrong-tenant row simply won't match, mirroring the old
+// middleware that rewrote these to findFirst.
+const WHERE_OPS = [
+  ...READ_OPS,
+  'findUnique', 'findUniqueOrThrow',
+  'update', 'updateMany', 'upsert',
+  'delete', 'deleteMany',
+]
+
 function createPrismaClient() {
-  const client = new PrismaClient()
+  // Prisma 7 is "Rust-free": the client connects through a driver adapter.
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 
-  // @ts-ignore Prisma middleware legacy API
-  client.$use(async (params: any, next: any) => {
-    const ctx = tenantStorage.getStore()
-    if (!ctx?.tenantId) return next(params)
+  // Tenant scoping moved from the removed `$use` middleware to a client
+  // extension. Same semantics: inject the active tenantId into every query on
+  // tenant-scoped models so a tenant can never read or mutate another's rows.
+  return new PrismaClient({ adapter }).$extends({
+    query: {
+      $allModels: {
+        async $allOperations({ model, operation, args, query }) {
+          const ctx = tenantStorage.getStore()
+          if (!ctx?.tenantId || !TENANT_SCOPED_MODELS.includes(model)) {
+            return query(args)
+          }
+          const tenantId = ctx.tenantId
+          const a = (args ?? {}) as Record<string, any>
 
-    if (params.model && TENANT_SCOPED_MODELS.includes(params.model)) {
-      const readOps = ['findMany', 'findFirst', 'findFirstOrThrow', 'count', 'aggregate']
-      const updateOps = ['update', 'updateMany', 'upsert']
-      const deleteOps = ['delete', 'deleteMany']
-
-      if (params.action === 'findUnique' || params.action === 'findUniqueOrThrow') {
-        params.action = params.action === 'findUnique' ? 'findFirst' : 'findFirstOrThrow'
-        params.args = params.args ?? {}
-        params.args.where = { ...params.args.where, tenantId: ctx.tenantId }
-      } else if (readOps.includes(params.action)) {
-        params.args = params.args ?? {}
-        params.args.where = { ...params.args.where, tenantId: ctx.tenantId }
-      } else if (params.action === 'create') {
-        params.args.data = { ...params.args.data, tenantId: ctx.tenantId }
-      } else if (params.action === 'createMany') {
-        const rows = Array.isArray(params.args.data) ? params.args.data : [params.args.data]
-        params.args.data = rows.map((row: object) => ({ ...row, tenantId: ctx.tenantId }))
-      } else if (updateOps.includes(params.action)) {
-        params.args.where = { ...params.args.where, tenantId: ctx.tenantId }
-      } else if (deleteOps.includes(params.action)) {
-        params.args.where = { ...params.args.where, tenantId: ctx.tenantId }
-      }
-    }
-
-    return next(params)
+          if (WHERE_OPS.includes(operation)) {
+            return query({ ...a, where: { ...a.where, tenantId } })
+          }
+          if (operation === 'create') {
+            return query({ ...a, data: { ...a.data, tenantId } })
+          }
+          if (operation === 'createMany') {
+            const rows = Array.isArray(a.data) ? a.data : [a.data]
+            return query({ ...a, data: rows.map((row: object) => ({ ...row, tenantId })) })
+          }
+          return query(args)
+        },
+      },
+    },
   })
-
-  return client
 }
 
 export const prisma = createPrismaClient()
+export type ExtendedPrismaClient = typeof prisma
 
 const prismaPlugin: FastifyPluginAsync = fp(async (fastify) => {
   fastify.decorate('prisma', prisma)
@@ -56,5 +66,5 @@ const prismaPlugin: FastifyPluginAsync = fp(async (fastify) => {
 export default prismaPlugin
 
 declare module 'fastify' {
-  interface FastifyInstance { prisma: PrismaClient }
+  interface FastifyInstance { prisma: ExtendedPrismaClient }
 }
