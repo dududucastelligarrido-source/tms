@@ -31,10 +31,10 @@ export default function ReportsPage() {
         <h1 className="text-xl font-bold text-slate-100">Relatórios</h1>
         {data && (
           <div className="flex gap-2">
-            <button onClick={() => exportPDF(data)} className="bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <button onClick={() => { exportPDF(data).catch(console.error) }} className="bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
               Exportar PDF
             </button>
-            <button onClick={() => exportExcel(data)} className="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <button onClick={() => { exportExcel(data).catch(console.error) }} className="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
               Exportar Excel
             </button>
           </div>
