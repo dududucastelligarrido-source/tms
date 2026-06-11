@@ -39,7 +39,13 @@ export async function createApp(opts: { logger?: boolean } = {}): Promise<Fastif
   await app.register(prismaPlugin)
   await app.register(swaggerPlugin)
 
-  app.get('/health', async () => ({ status: 'ok' }))
+  // commit: Render injeta RENDER_GIT_COMMIT no runtime; "unknown" em dev local.
+  // Permite verificar de fora qual código está no ar (skill /deploy-status).
+  app.get('/health', async () => ({
+    status: 'ok',
+    commit: process.env.RENDER_GIT_COMMIT ?? 'unknown',
+    uptime: Math.round(process.uptime()),
+  }))
   await app.register(authRoutes, { prefix: '/api/v1' })
   await app.register(vehicleRoutes, { prefix: '/api/v1' })
   await app.register(driverRoutes, { prefix: '/api/v1' })
