@@ -22,7 +22,7 @@ export const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     }).parse(request.body)
 
     const result = await createPresignedUpload({
-      tenantId: (request as any).tenantId,
+      tenantId: request.user.tenantId,
       context: body.context,
       contentType: body.contentType,
       filename: body.filename,

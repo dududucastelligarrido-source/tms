@@ -30,7 +30,7 @@ export const vehicleRoutes: FastifyPluginAsync = async (fastify) => {
       limit: z.coerce.number().int().min(1).max(200).default(50),
     }).parse(request.query)
 
-    const where: Record<string, unknown> = { tenantId: (request as any).tenantId, isActive: true }
+    const where: Record<string, unknown> = { tenantId: request.user.tenantId, isActive: true }
     if (query.search) {
       where.OR = [
         { plate: { contains: query.search, mode: 'insensitive' } },

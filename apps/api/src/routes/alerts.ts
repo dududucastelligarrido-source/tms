@@ -60,7 +60,7 @@ export const alertRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Preview the current tenant's alerts (used by the in-app banner / settings).
     instance.get('/alerts', { preHandler: requireRole('admin') }, async (request) => {
-      const tenantId = (request as any).tenantId
+      const tenantId = request.user.tenantId
       const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } })
       return computeTenantAlerts(tenantId, tenant.name)
     })
@@ -68,7 +68,7 @@ export const alertRoutes: FastifyPluginAsync = async (fastify) => {
     // Manually send the digest for the current tenant right now.
     instance.post('/alerts/send-now', { preHandler: requireRole('admin') }, async (request, reply) => {
       if (!isEmailConfigured()) return reply.status(503).send({ error: 'Email não configurado no servidor' })
-      const tenantId = (request as any).tenantId
+      const tenantId = request.user.tenantId
       const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } })
       const alerts = await computeTenantAlerts(tenantId, tenant.name)
       const recipients = await adminEmails(tenantId)

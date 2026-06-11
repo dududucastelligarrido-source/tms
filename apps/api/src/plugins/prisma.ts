@@ -4,9 +4,13 @@ import fp from 'fastify-plugin'
 import type { FastifyPluginAsync } from 'fastify'
 import { tenantStorage } from '../middleware/tenant-scope.js'
 
-const TENANT_SCOPED_MODELS = [
-  'User', 'Vehicle', 'Driver', 'Trip', 'TripCost',
-  'KmLog', 'ChecklistTemplate', 'TripChecklist',
+// Every model in schema.prisma that has a tenantId column MUST be listed here —
+// a missing entry silently disables tenant isolation for that model.
+// Guarded by test/tenant-isolation.test.ts, which diffs this list against the schema.
+export const TENANT_SCOPED_MODELS = [
+  'User', 'AuditLog', 'Vehicle', 'VehicleMaintenance', 'MaintenancePlan',
+  'Driver', 'Trip', 'TripCost', 'KmLog', 'ChecklistTemplate',
+  'TripChecklist', 'FuelLog',
 ]
 
 const READ_OPS = ['findMany', 'findFirst', 'findFirstOrThrow', 'count', 'aggregate']

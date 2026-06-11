@@ -18,6 +18,17 @@ try {
   // .env not found, continue with existing env
 }
 
-process.env.DATABASE_URL = process.env.DATABASE_URL_TEST!
+// cleanDb() wipes every table before each test — refuse to run against anything
+// that doesn't look like a dedicated test database.
+const testUrl = process.env.DATABASE_URL_TEST
+if (!testUrl) {
+  throw new Error('DATABASE_URL_TEST is not set — refusing to run tests')
+}
+if (!/test|localhost|127\.0\.0\.1/i.test(testUrl)) {
+  throw new Error(
+    'DATABASE_URL_TEST does not look like a test database (expected "test", "localhost" or "127.0.0.1" in the URL) — refusing to run tests against it',
+  )
+}
+process.env.DATABASE_URL = testUrl
 process.env.JWT_SECRET = 'test-secret-at-least-32-characters-long'
 process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-at-least-32-ch'
