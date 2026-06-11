@@ -33,7 +33,7 @@ export const fuelLogRoutes: FastifyPluginAsync = async (fastify) => {
       limit: z.coerce.number().int().min(1).max(200).default(50),
     }).parse(request.query)
 
-    const where: Record<string, unknown> = { tenantId: (request as any).tenantId }
+    const where: Record<string, unknown> = { tenantId: request.user.tenantId }
     if (query.vehicleId) where.vehicleId = query.vehicleId
     if (query.driverId) where.driverId = query.driverId
     if (query.startDate || query.endDate) {
@@ -66,7 +66,7 @@ export const fuelLogRoutes: FastifyPluginAsync = async (fastify) => {
     const totalAmount = data.liters * data.pricePerLiter
 
     const prevLog = await prisma.fuelLog.findFirst({
-      where: { tenantId: (request as any).tenantId, vehicleId: data.vehicleId, fuelType: 'diesel' },
+      where: { tenantId: request.user.tenantId, vehicleId: data.vehicleId, fuelType: 'diesel' },
       orderBy: { loggedAt: 'desc' },
     })
     const kmPerLiter = prevLog && data.fuelType === 'diesel'
@@ -80,7 +80,7 @@ export const fuelLogRoutes: FastifyPluginAsync = async (fastify) => {
       const log = await prisma.$transaction(async (tx) => {
         const created = await tx.fuelLog.create({
           data: {
-            tenantId: (request as any).tenantId,
+            tenantId: request.user.tenantId,
             vehicleId: data.vehicleId,
             driverId: data.driverId,
             tripId: data.tripId,
@@ -115,7 +115,8 @@ export const fuelLogRoutes: FastifyPluginAsync = async (fastify) => {
     const updateData: Record<string, unknown> = { ...data }
     if (data.loggedAt) updateData.loggedAt = new Date(data.loggedAt)
     if (data.liters !== undefined || data.pricePerLiter !== undefined) {
-      const existing = await prisma.fuelLog.findUniqueOrThrow({ where: { id } })
+      const existing = await prisma.fuelLog.findFirst({ where: { id } })
+      if (!existing) return reply.status(404).send({ error: 'Fuel log not found' })
       const liters = data.liters ?? Number(existing.liters)
       const pricePerLiter = data.pricePerLiter ?? Number(existing.pricePerLiter)
       updateData.totalAmount = liters * pricePerLiter
@@ -131,7 +132,8 @@ export const fuelLogRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.delete('/fuel-logs/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
-    await prisma.fuelLog.delete({ where: { id } })
+    const { count } = await prisma.fuelLog.deleteMany({ where: { id } })
+    if (count === 0) return reply.status(404).send({ error: 'Fuel log not found' })
     return reply.status(204).send()
   })
 }

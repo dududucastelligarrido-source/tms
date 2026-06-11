@@ -24,7 +24,7 @@ export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', tenantScope)
 
   fastify.get('/maintenance', async (request) => {
-    const tenantId = (request as any).tenantId
+    const tenantId = request.user.tenantId
     const vehicles = await prisma.vehicle.findMany({
       where: { tenantId, isActive: true },
       orderBy: { plate: 'asc' },
@@ -59,7 +59,7 @@ export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
       limit: z.coerce.number().int().min(1).max(200).default(50),
     }).parse(request.query)
 
-    const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, tenantId: (request as any).tenantId } })
+    const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, tenantId: request.user.tenantId } })
     if (!vehicle) return reply.status(404).send({ error: 'Veículo não encontrado' })
 
     const skip = (query.page - 1) * query.limit
@@ -77,7 +77,7 @@ export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post('/vehicles/:vehicleId/maintenance', { preHandler: requireRole('admin') }, async (request, reply) => {
     const { vehicleId } = z.object({ vehicleId: z.string().uuid() }).parse(request.params)
-    const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, tenantId: (request as any).tenantId } })
+    const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, tenantId: request.user.tenantId } })
     if (!vehicle) return reply.status(404).send({ error: 'Veículo não encontrado' })
 
     let data: z.infer<typeof CreateSchema>
@@ -86,7 +86,7 @@ export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
 
     const record = await prisma.vehicleMaintenance.create({
       data: {
-        tenantId: (request as any).tenantId,
+        tenantId: request.user.tenantId,
         vehicleId,
         type: data.type,
         description: data.description,
@@ -105,7 +105,7 @@ export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.patch('/vehicles/:vehicleId/maintenance/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
     const { vehicleId, id } = z.object({ vehicleId: z.string().uuid(), id: z.string().uuid() }).parse(request.params)
-    const record = await prisma.vehicleMaintenance.findFirst({ where: { id, vehicleId, tenantId: (request as any).tenantId } })
+    const record = await prisma.vehicleMaintenance.findFirst({ where: { id, vehicleId, tenantId: request.user.tenantId } })
     if (!record) return reply.status(404).send({ error: 'Registro não encontrado' })
 
     let data: Partial<z.infer<typeof CreateSchema>>
@@ -125,7 +125,7 @@ export const maintenanceRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.delete('/vehicles/:vehicleId/maintenance/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
     const { vehicleId, id } = z.object({ vehicleId: z.string().uuid(), id: z.string().uuid() }).parse(request.params)
-    const record = await prisma.vehicleMaintenance.findFirst({ where: { id, vehicleId, tenantId: (request as any).tenantId } })
+    const record = await prisma.vehicleMaintenance.findFirst({ where: { id, vehicleId, tenantId: request.user.tenantId } })
     if (!record) return reply.status(404).send({ error: 'Registro não encontrado' })
     await prisma.vehicleMaintenance.delete({ where: { id } })
     return reply.status(204).send()

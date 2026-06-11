@@ -70,7 +70,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       limit: z.coerce.number().int().min(1).max(200).default(50),
     }).parse(request.query)
 
-    const where: Record<string, unknown> = { tenantId: (request as any).tenantId, isActive: true }
+    const where: Record<string, unknown> = { tenantId: request.user.tenantId, isActive: true }
     if (query.search) {
       where.OR = [
         { name: { contains: query.search, mode: 'insensitive' } },
@@ -99,7 +99,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
 
     const passwordHash = await hash(data.password)
     const user = await prisma.user.create({
-      data: { tenantId: (request as any).tenantId, name: data.name, email: data.email, passwordHash, role: data.role } as any,
+      data: { tenantId: request.user.tenantId, name: data.name, email: data.email, passwordHash, role: data.role } as any,
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     })
     return reply.status(201).send(user)

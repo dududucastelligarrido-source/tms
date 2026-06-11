@@ -20,7 +20,7 @@ export const auditLogRoutes: FastifyPluginAsync = async (fastify) => {
       limit: z.coerce.number().int().min(1).max(200).default(50),
     }).parse(request.query)
 
-    const where: Record<string, unknown> = { tenantId: (request as any).tenantId }
+    const where: Record<string, unknown> = { tenantId: request.user.tenantId }
     if (query.entity) where.entity = query.entity
     if (query.action) where.action = query.action
     if (query.userId) where.userId = query.userId
@@ -50,7 +50,7 @@ export const auditLogRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Distinct entities/actions present, for the filter dropdowns.
   fastify.get('/audit-logs/facets', { preHandler: requireRole('admin') }, async (request) => {
-    const tenantId = (request as any).tenantId
+    const tenantId = request.user.tenantId
     const [entities, actions] = await Promise.all([
       prisma.auditLog.findMany({ where: { tenantId }, distinct: ['entity'], select: { entity: true }, orderBy: { entity: 'asc' } }),
       prisma.auditLog.findMany({ where: { tenantId }, distinct: ['action'], select: { action: true }, orderBy: { action: 'asc' } }),

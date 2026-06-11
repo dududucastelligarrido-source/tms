@@ -26,7 +26,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', tenantScope)
 
   fastify.get('/reports/dashboard', { preHandler: requireRole('admin') }, async (request) => {
-    const tenantId = (request as any).tenantId
+    const tenantId = request.user.tenantId
     const { period: periodStr } = z.object({ period: z.enum(['7', '30', '90']).default('30') }).parse(request.query)
     const period = Number(periodStr)
 
@@ -343,7 +343,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
 
     const start = new Date(startDate)
     const end = new Date(endDate)
-    const tenantId = (request as any).tenantId
+    const tenantId = request.user.tenantId
 
     const [trips, costs, kmLogs, fuelLogs] = await Promise.all([
       prisma.trip.findMany({

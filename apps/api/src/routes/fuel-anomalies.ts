@@ -14,7 +14,7 @@ export const fuelAnomalyRoutes: FastifyPluginAsync = async (fastify) => {
       days: z.coerce.number().int().min(1).max(365).default(90),
     }).parse(request.query)
 
-    const anomalies = await detectFuelAnomalies((request as any).tenantId, days)
+    const anomalies = await detectFuelAnomalies(request.user.tenantId, days)
     return { data: anomalies, total: anomalies.length, days }
   })
 }

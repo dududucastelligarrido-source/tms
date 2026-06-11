@@ -27,14 +27,14 @@ export const maintenancePlanRoutes: FastifyPluginAsync = async (fastify) => {
   // Plans for a vehicle, each with its computed next-due schedule.
   fastify.get('/vehicles/:vehicleId/maintenance-plans', async (request, reply) => {
     const { vehicleId } = z.object({ vehicleId: z.string().uuid() }).parse(request.params)
-    const vehicle = await assertVehicle((request as any).tenantId, vehicleId)
+    const vehicle = await assertVehicle(request.user.tenantId, vehicleId)
     if (!vehicle) return reply.status(404).send({ error: 'Veículo não encontrado' })
     return computeVehicleSchedule(vehicleId, vehicle.currentKm)
   })
 
   fastify.post('/vehicles/:vehicleId/maintenance-plans', { preHandler: requireRole('admin') }, async (request, reply) => {
     const { vehicleId } = z.object({ vehicleId: z.string().uuid() }).parse(request.params)
-    const vehicle = await assertVehicle((request as any).tenantId, vehicleId)
+    const vehicle = await assertVehicle(request.user.tenantId, vehicleId)
     if (!vehicle) return reply.status(404).send({ error: 'Veículo não encontrado' })
 
     let data: z.infer<typeof PlanSchema>
@@ -43,7 +43,7 @@ export const maintenancePlanRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const plan = await prisma.maintenancePlan.create({
-        data: { tenantId: (request as any).tenantId, vehicleId, ...data } as any,
+        data: { tenantId: request.user.tenantId, vehicleId, ...data } as any,
       })
       return reply.status(201).send(plan)
     } catch (err: any) {
@@ -54,7 +54,7 @@ export const maintenancePlanRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.patch('/maintenance-plans/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
-    const plan = await prisma.maintenancePlan.findFirst({ where: { id, tenantId: (request as any).tenantId } })
+    const plan = await prisma.maintenancePlan.findFirst({ where: { id, tenantId: request.user.tenantId } })
     if (!plan) return reply.status(404).send({ error: 'Plano não encontrado' })
 
     const UpdateSchema = z.object({
@@ -72,7 +72,7 @@ export const maintenancePlanRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.delete('/maintenance-plans/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
-    const plan = await prisma.maintenancePlan.findFirst({ where: { id, tenantId: (request as any).tenantId } })
+    const plan = await prisma.maintenancePlan.findFirst({ where: { id, tenantId: request.user.tenantId } })
     if (!plan) return reply.status(404).send({ error: 'Plano não encontrado' })
     await prisma.maintenancePlan.delete({ where: { id } })
     return reply.status(204).send()
