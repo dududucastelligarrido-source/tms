@@ -11,6 +11,9 @@ describe('GET /health', () => {
   it('returns ok', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' })
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toEqual({ status: 'ok' })
+    const body = res.json()
+    expect(body).toMatchObject({ status: 'ok' })
+    expect(typeof body.commit).toBe('string')
+    expect(typeof body.uptime).toBe('number')
   })
 })
