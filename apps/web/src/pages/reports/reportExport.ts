@@ -1,6 +1,4 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-import * as XLSX from 'xlsx'
+import type jsPDF from 'jspdf'
 
 const STATUS_LABELS: Record<string, string> = { draft: 'Rascunho', active: 'Em Curso', completed: 'Concluída', cancelled: 'Cancelada' }
 const COST_LABELS: Record<string, string> = { fuel: 'Combustível', toll: 'Pedágio', meal: 'Refeição', maintenance: 'Manutenção', other: 'Outros' }
@@ -9,8 +7,12 @@ function fmt(n: number) { return `R$ ${n.toLocaleString('pt-BR', { minimumFracti
 function fmtDate(iso: string) { return new Date(iso).toLocaleDateString('pt-BR') }
 function lastY(doc: jsPDF) { return (doc as any).lastAutoTable.finalY }
 
-export function exportPDF(data: any) {
-  const doc = new jsPDF()
+export async function exportPDF(data: any) {
+  const [{ default: JsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
+  const doc = new JsPDF()
   const start = fmtDate(data.period.startDate)
   const end = fmtDate(data.period.endDate)
 
@@ -162,7 +164,8 @@ export function exportPDF(data: any) {
   doc.save(`relatorio-tms-${start}-${end}.pdf`)
 }
 
-export function exportExcel(data: any) {
+export async function exportExcel(data: any) {
+  const XLSX = await import('xlsx')
   const wb = XLSX.utils.book_new()
   const start = fmtDate(data.period.startDate)
   const end = fmtDate(data.period.endDate)

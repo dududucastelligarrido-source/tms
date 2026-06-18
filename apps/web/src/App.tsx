@@ -1,24 +1,29 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 import { hasCredentials, isAccessTokenExpired, clearTokens, getRefreshToken } from './lib/auth.js'
 import LoginPage from './pages/auth/LoginPage.js'
-import DashboardPage from './pages/dashboard/DashboardPage.js'
-import TripsPage from './pages/trips/TripsPage.js'
-import TripDetailPage from './pages/trips/TripDetailPage.js'
-import NewTripPage from './pages/trips/NewTripPage.js'
-import ActiveTripPage from './pages/trips/ActiveTripPage.js'
-import ChecklistPage from './pages/checklists/ChecklistPage.js'
-import ChecklistTemplatesPage from './pages/checklists/ChecklistTemplatesPage.js'
-import VehiclesPage from './pages/vehicles/VehiclesPage.js'
-import DriversPage from './pages/drivers/DriversPage.js'
-import UsersPage from './pages/users/UsersPage.js'
-import ProfilePage from './pages/profile/ProfilePage.js'
-import ReportsPage from './pages/reports/ReportsPage.js'
-import FuelPage from './pages/fuel/FuelPage.js'
-import MaintenancePage from './pages/maintenance/MaintenancePage.js'
-import MaintenanceOverviewPage from './pages/maintenance/MaintenanceOverviewPage.js'
-import KmLogsPage from './pages/trips/KmLogsPage.js'
-import AuditLogPage from './pages/audit/AuditLogPage.js'
 import Layout from './components/Layout.js'
+
+// Páginas carregadas sob demanda (code-splitting por rota): cada uma vira um
+// chunk separado, mantendo o bundle inicial enxuto. Libs pesadas que só vivem
+// em páginas específicas (recharts no dashboard/relatórios) saem do bundle base.
+const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage.js'))
+const TripsPage = lazy(() => import('./pages/trips/TripsPage.js'))
+const TripDetailPage = lazy(() => import('./pages/trips/TripDetailPage.js'))
+const NewTripPage = lazy(() => import('./pages/trips/NewTripPage.js'))
+const ActiveTripPage = lazy(() => import('./pages/trips/ActiveTripPage.js'))
+const ChecklistPage = lazy(() => import('./pages/checklists/ChecklistPage.js'))
+const ChecklistTemplatesPage = lazy(() => import('./pages/checklists/ChecklistTemplatesPage.js'))
+const VehiclesPage = lazy(() => import('./pages/vehicles/VehiclesPage.js'))
+const DriversPage = lazy(() => import('./pages/drivers/DriversPage.js'))
+const UsersPage = lazy(() => import('./pages/users/UsersPage.js'))
+const ProfilePage = lazy(() => import('./pages/profile/ProfilePage.js'))
+const ReportsPage = lazy(() => import('./pages/reports/ReportsPage.js'))
+const FuelPage = lazy(() => import('./pages/fuel/FuelPage.js'))
+const MaintenancePage = lazy(() => import('./pages/maintenance/MaintenancePage.js'))
+const MaintenanceOverviewPage = lazy(() => import('./pages/maintenance/MaintenanceOverviewPage.js'))
+const KmLogsPage = lazy(() => import('./pages/trips/KmLogsPage.js'))
+const AuditLogPage = lazy(() => import('./pages/audit/AuditLogPage.js'))
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   // Sem nenhuma credencial armazenada → login
@@ -33,6 +38,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-slate-400 text-sm">Carregando…</div>}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
@@ -56,5 +62,6 @@ export default function App() {
         <Route path="vehicles/:vehicleId/maintenance" element={<MaintenancePage />} />
       </Route>
     </Routes>
+    </Suspense>
   )
 }

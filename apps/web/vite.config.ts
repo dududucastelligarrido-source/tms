@@ -27,4 +27,14 @@ export default defineConfig({
     }),
   ],
   server: { proxy: { '/api': 'http://localhost:3001' } },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor React em chunk estável (muda raramente → cache de longo prazo).
+          react: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
+  },
 })
